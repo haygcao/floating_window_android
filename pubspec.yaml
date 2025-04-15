@@ -1,10 +1,10 @@
 name: floating_window_android
 description: 'A Flutter plugin for displaying and managing floating windows on Android. Supports customizable positioning, dragging, styling, and interaction with the main app.'
-version: 0.0.1
-homepage: https://github.com/yourusername/floating_window_android
-repository: https://github.com/yourusername/floating_window_android
-issue_tracker: https://github.com/yourusername/floating_window_android/issues
-documentation: https://github.com/yourusername/floating_window_android/blob/main/README.md
+version: 1.0.0
+homepage: https://github.com/maojiu-bb/floating_window_android
+repository: https://github.com/maojiu-bb/floating_window_android
+issue_tracker: https://github.com/maojiu-bb/floating_window_android/issues
+documentation: https://github.com/maojiu-bb/floating_window_android/blob/main/README.md
 
 environment:
   sdk: ^3.7.2
@@ -38,7 +38,7 @@ flutter:
   plugin:
     platforms:
       android:
-        package: com.example.floating_window_android
+        package: com.maojiu.floating_window_android
         pluginClass: FloatingWindowAndroidPlugin
 
   # To add assets to your plugin package, add an assets section, like this:

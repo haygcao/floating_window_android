@@ -1,4 +1,4 @@
-package com.example.floating_window_android.constants
+package com.maojiu.floating_window_android.constants
 
 /**
  * Floating Window Constants

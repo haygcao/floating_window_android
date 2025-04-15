@@ -25,7 +25,7 @@ class Constants {
       "floating_window_android/overlay_listener";
 
   static const String navigationEventChannel =
-      "com.example.floating_window_android_example/navigation";
+      "com.maojiu.floating_window_android_example/navigation";
 
   // Parameter constants
   static const String height = "height";

@@ -1,4 +1,4 @@
-package com.example.floating_window_android_example
+package com.maojiu.floating_window_android_example
 
 import android.content.Intent
 import android.os.Bundle
@@ -11,7 +11,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private val CHANNEL = "com.example.floating_window_android_example/navigation"
+    private val CHANNEL = "com.maojiu.floating_window_android_example/navigation"
     private var methodChannel: MethodChannel? = null
     private var pendingParams: Map<String, Any?>? = null
     private val TAG = "MainActivity"

@@ -1,4 +1,4 @@
-package com.example.floating_window_android
+package com.maojiu.floating_window_android
 
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel

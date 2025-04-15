@@ -1,11 +1,11 @@
-package com.example.floating_window_android
+package com.maojiu.floating_window_android
 
 import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
-import com.example.floating_window_android.constants.Constants
-import com.example.floating_window_android.manager.OverlayManager
+import com.maojiu.floating_window_android.constants.Constants
+import com.maojiu.floating_window_android.manager.OverlayManager
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding

@@ -30,6 +30,8 @@ class _AppState extends State<App> {
 
   List<GlobalKey<PriceListItemState>> _itemKeys = [];
 
+  bool _permissionDialogShown = false; // 添加变量跟踪弹窗状态
+
   @override
   void initState() {
     super.initState();
@@ -45,16 +47,25 @@ class _AppState extends State<App> {
   }
 
   Future<void> _checkPermission() async {
+    // 如果弹窗已经显示过，不再重复显示
+    if (_permissionDialogShown) return;
+
     // 检查权限
     bool permission = await FloatingWindowAndroid.isPermissionGranted();
 
     if (!permission && _navigatorKey.currentContext != null) {
       // 如果没有权限，显示弹窗
+      _permissionDialogShown = true; // 标记弹窗已显示
       showDialog(
         context: _navigatorKey.currentContext!,
         barrierDismissible: false,
         builder: (context) => const PermissionDialog(),
-      );
+      ).then((_) {
+        // 弹窗关闭后，隔一段时间再允许显示
+        Future.delayed(const Duration(seconds: 5), () {
+          _permissionDialogShown = false;
+        });
+      });
     }
   }
 
@@ -158,6 +169,9 @@ class _AppState extends State<App> {
       flag: OverlayFlag.defaultFlag,
       enableDrag: true,
       positionGravity: PositionGravity.none,
+      overlayTitle: "情报监控",
+      overlayContent: "您的情报监控已开启",
+      notificationVisibility: NotificationVisibility.visibilityPublic,
     );
     debugPrint("show overlay ${res.toString()}");
   }

@@ -1,4 +1,4 @@
-package com.example.floating_window_android
+package com.maojiu.floating_window_android
 
 import android.app.*
 import android.content.Context
@@ -6,7 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.example.floating_window_android.constants.Constants
+import com.maojiu.floating_window_android.constants.Constants
 import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor

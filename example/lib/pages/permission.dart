@@ -127,29 +127,29 @@ class PermissionPage extends StatefulWidget {
 }
 
 class _PermissionPageState extends State<PermissionPage> {
-  @override
-  void initState() {
-    super.initState();
-    _checkPermission();
-  }
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _checkPermission();
+  // }
 
-  Future<void> _checkPermission() async {
-    // 检查权限
-    bool permission = await FloatingWindowAndroid.isPermissionGranted();
+  // Future<void> _checkPermission() async {
+  //   // 检查权限
+  //   bool permission = await FloatingWindowAndroid.isPermissionGranted();
 
-    if (!permission && mounted) {
-      // 如果没有权限，显示弹窗
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const PermissionDialog(),
-        );
-      });
-    }
+  //   if (!permission && mounted) {
+  //     // 如果没有权限，显示弹窗
+  //     WidgetsBinding.instance.addPostFrameCallback((_) {
+  //       showDialog(
+  //         context: context,
+  //         barrierDismissible: false,
+  //         builder: (context) => const PermissionDialog(),
+  //       );
+  //     });
+  //   }
 
-    setState(() {});
-  }
+  //   setState(() {});
+  // }
 
   @override
   Widget build(BuildContext context) {

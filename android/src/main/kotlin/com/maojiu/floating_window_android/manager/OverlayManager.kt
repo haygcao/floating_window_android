@@ -1,4 +1,4 @@
-package com.example.floating_window_android.manager
+package com.maojiu.floating_window_android.manager
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -13,7 +13,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
-import com.example.floating_window_android.constants.Constants
+import com.maojiu.floating_window_android.constants.Constants
 import io.flutter.FlutterInjector
 import io.flutter.embedding.android.FlutterTextureView
 import io.flutter.embedding.android.FlutterView

@@ -21,7 +21,7 @@ Add the dependency to your `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  floating_window_android: ^version
+  floating_window_android: ^1.0.0
 ```
 
 ## Required Permissions
@@ -132,7 +132,7 @@ await FloatingWindowAndroid.openMainApp({
 ```kotlin
 // In MainActivity.kt
 class MainActivity: FlutterActivity() {
-    private val CHANNEL = "com.example.your_app/navigation"
+    private val CHANNEL = "com.maojiu.your_app/navigation"
     private var methodChannel: MethodChannel? = null
     private var pendingParams: Map<String, Any?>? = null
 
@@ -171,7 +171,7 @@ class MainActivity: FlutterActivity() {
 
 ```dart
 // In main Flutter app
-static const channel = MethodChannel('com.example.your_app/navigation');
+static const channel = MethodChannel('com.maojiu.your_app/navigation');
 
 @override
 void initState() {
@@ -264,4 +264,5 @@ See the code documentation for a complete API reference.
 ```
 MIT License
 ```
+
 # floating_window_android
