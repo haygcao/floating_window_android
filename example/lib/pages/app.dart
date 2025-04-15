@@ -15,12 +15,12 @@ class App extends StatefulWidget {
   const App({super.key});
 
   @override
-  _AppState createState() => _AppState();
+  AppState createState() => AppState();
 }
 
-class _AppState extends State<App> {
+class AppState extends State<App> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-  static const String CHANNEL = Constants.navigationEventChannel;
+  static const String channelName = Constants.navigationEventChannel;
   late MethodChannel _channel;
 
   List<Price> _prices = [];
@@ -37,7 +37,7 @@ class _AppState extends State<App> {
     super.initState();
 
     // 初始化方法通道
-    _channel = const MethodChannel(CHANNEL);
+    _channel = const MethodChannel(channelName);
     _channel.setMethodCallHandler(_handleMethodCall);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -157,6 +157,7 @@ class _AppState extends State<App> {
       return;
     }
 
+    // ignore: use_build_context_synchronously
     final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
 
     final width = (115 * devicePixelRatio).toInt();
