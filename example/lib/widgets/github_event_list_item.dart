@@ -157,12 +157,12 @@ class GitHubEventListItemState extends State<GitHubEventListItem>
                             decoration: BoxDecoration(
                               color: _getEventTypeColor(
                                 widget.event.type,
-                              ).withOpacity(0.1),
+                              ).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
                                 color: _getEventTypeColor(
                                   widget.event.type,
-                                ).withOpacity(0.3),
+                                ).withValues(alpha: 0.3),
                                 width: 0.5,
                               ),
                             ),

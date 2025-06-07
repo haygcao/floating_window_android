@@ -269,9 +269,9 @@ class _OverlayWindowState extends State<OverlayWindow> {
       color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
-          color: kGitHubColor.withOpacity(0.95),
+          color: kGitHubColor.withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),
         child: Stack(
           children: [
