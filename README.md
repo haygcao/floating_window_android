@@ -31,7 +31,7 @@ Add the dependency to your `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  floating_window_android: ^1.0.0
+  floating_window_android: ^1.1.0
 ```
 
 ## Required Permissions
