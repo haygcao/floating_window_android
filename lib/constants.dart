@@ -19,6 +19,7 @@ class Constants {
       "isMainAppRunning"; // Check if the main app is running in foreground
   static const String navigateToPage =
       "navigateToPage"; // Navigate to specified page
+  static const String isShowing = "isShowing";
 
   // Event channels
   static const String overlayEventChannel =
@@ -41,5 +42,9 @@ class Constants {
   static const String x = "x";
   static const String y = "y";
   static const String data = "data";
-  static const String isShowing = "isShowing";
+
+  // Flutter engine preloading methods for faster overlay startup
+  static const String preloadFlutterEngine = "preloadFlutterEngine";
+  static const String isFlutterEnginePreloaded = "isFlutterEnginePreloaded";
+  static const String cleanupPreloadedEngine = "cleanupPreloadedEngine";
 }

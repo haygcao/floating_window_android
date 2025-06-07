@@ -49,6 +49,68 @@ class OverlayManager(
     private var currentX = 0
     private var currentY = 0
     
+    companion object {
+        // Preloaded Flutter engine cache key
+        private const val PRELOADED_ENGINE_KEY = "preloaded_overlay_engine"
+        private var isEnginePreloaded = false
+        
+        /**
+         * Preload Flutter engine for faster overlay startup
+         * Should be called during app initialization
+         */
+        fun preloadFlutterEngine(context: Context, dartEntryPoint: String = "overlayMain") {
+            if (isEnginePreloaded) {
+                // Engine already preloaded, skip
+                return
+            }
+            
+            try {
+                // Create and warm up Flutter engine in background
+                val engine = FlutterEngine(context)
+                
+                // Execute Dart entry point to warm up the engine
+                val dartEntrypoint = DartExecutor.DartEntrypoint(
+                    FlutterInjector.instance().flutterLoader().findAppBundlePath(),
+                    dartEntryPoint
+                )
+                engine.dartExecutor.executeDartEntrypoint(dartEntrypoint)
+                
+                // Cache the preloaded engine
+                FlutterEngineCache.getInstance().put(PRELOADED_ENGINE_KEY, engine)
+                isEnginePreloaded = true
+                
+                // Log for debugging
+                android.util.Log.d("OverlayManager", "Flutter engine preloaded successfully")
+            } catch (e: Exception) {
+                android.util.Log.e("OverlayManager", "Failed to preload Flutter engine", e)
+            }
+        }
+        
+        /**
+         * Clean up preloaded Flutter engine
+         * Should be called when app is destroyed
+         */
+        fun cleanupPreloadedEngine() {
+            try {
+                FlutterEngineCache.getInstance().get(PRELOADED_ENGINE_KEY)?.let { engine ->
+                    engine.destroy()
+                    FlutterEngineCache.getInstance().remove(PRELOADED_ENGINE_KEY)
+                }
+                isEnginePreloaded = false
+                android.util.Log.d("OverlayManager", "Preloaded Flutter engine cleaned up")
+            } catch (e: Exception) {
+                android.util.Log.e("OverlayManager", "Failed to cleanup preloaded engine", e)
+            }
+        }
+        
+        /**
+         * Check if Flutter engine is preloaded
+         */
+        fun isFlutterEnginePreloaded(): Boolean {
+            return isEnginePreloaded && FlutterEngineCache.getInstance().get(PRELOADED_ENGINE_KEY) != null
+        }
+    }
+    
     /**
      * Check floating window permission
      */
@@ -90,15 +152,27 @@ class OverlayManager(
         this.enableDrag = enableDrag
         this.positionGravity = positionGravity
         
-        // Create Flutter engine
-        flutterEngine = FlutterEngine(context)
-        flutterEngine?.let { engine ->
-            // Use direct entry point method without reflection
+        // Try to get preloaded Flutter engine first for faster startup
+        flutterEngine = if (isFlutterEnginePreloaded()) {
+            // Use preloaded engine for instant startup
+            val preloadedEngine = FlutterEngineCache.getInstance().get(PRELOADED_ENGINE_KEY)
+            android.util.Log.d("OverlayManager", "Using preloaded Flutter engine for fast startup")
+            preloadedEngine
+        } else {
+            // Fallback to creating new engine (slower startup)
+            android.util.Log.d("OverlayManager", "Creating new Flutter engine (consider preloading for faster startup)")
+            val newEngine = FlutterEngine(context)
+            // Execute Dart entry point
             val dartEntrypoint = DartExecutor.DartEntrypoint(
                 FlutterInjector.instance().flutterLoader().findAppBundlePath(),
                 dartEntryPoint
             )
-            engine.dartExecutor.executeDartEntrypoint(dartEntrypoint)
+            newEngine.dartExecutor.executeDartEntrypoint(dartEntrypoint)
+            newEngine
+        }
+        
+        flutterEngine?.let { engine ->
+            // Always cache the current engine for overlay control
             FlutterEngineCache.getInstance().put("overlay_engine", engine)
             
             // Set up dedicated method channel for the overlay engine
@@ -180,13 +254,13 @@ class OverlayManager(
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                 }
                 else -> { // defaultFlag
-                    if (enableDrag) {
-                        // Enable drag: only set NOT_TOUCH_MODAL, allow internal clicks and external events
-                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL 
-                    } else {
-                        // Disable drag: set to 0, allow normal interaction and focus
-                        0 
-                    }
+                    // For system gesture compatibility, use a combination of flags that:
+                    // 1. Allow system gestures to work properly
+                    // 2. Prevent the overlay from blocking system navigation
+                    // 3. Still allow interaction with the overlay content
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
                 }
             }
             
@@ -341,11 +415,10 @@ class OverlayManager(
      * Close floating window
      */
     fun closeOverlay() {
-        // ---> Added: Clean up dedicated channel <--- 
+        // Clean up dedicated channel
         flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
              MethodChannel(messenger, Constants.OVERLAY_CONTROL_CHANNEL).setMethodCallHandler(null)
         }
-       // ---> End of addition <---
        
         try {
             if (overlayView != null) {
@@ -363,12 +436,24 @@ class OverlayManager(
             flutterView = null
         }
         
+        // Handle Flutter engine - preserve preloaded engine for reuse
         flutterEngine?.let { engine ->
-            engine.destroy()
-            FlutterEngineCache.getInstance().remove("overlay_engine")
+            val isPreloadedEngine = (engine == FlutterEngineCache.getInstance().get(PRELOADED_ENGINE_KEY))
+            
+            if (isPreloadedEngine) {
+                // This is a preloaded engine, keep it alive for future use
+                android.util.Log.d("OverlayManager", "Preserving preloaded Flutter engine for reuse")
+                // Only remove from overlay_engine cache, keep in preloaded cache
+                FlutterEngineCache.getInstance().remove("overlay_engine")
+            } else {
+                // This is a regular engine, destroy it
+                android.util.Log.d("OverlayManager", "Destroying regular Flutter engine")
+                engine.destroy()
+                FlutterEngineCache.getInstance().remove("overlay_engine")
+            }
         }
-        flutterEngine = null
         
+        flutterEngine = null
         windowParams = null
     }
     
@@ -388,8 +473,12 @@ class OverlayManager(
             Constants.FOCUS_POINTER -> {
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
             }
-            else -> {
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            else -> { // defaultFlag
+                // Use the same flag combination as setupWindowParams for consistency
+                // This ensures system gestures work properly across all scenarios
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
             }
         }
         

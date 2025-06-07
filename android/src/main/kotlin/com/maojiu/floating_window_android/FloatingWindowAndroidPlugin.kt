@@ -249,6 +249,34 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
         }
       }
       
+      Constants.PRELOAD_FLUTTER_ENGINE -> {
+        try {
+          val dartEntryPoint = call.argument<String>("dartEntryPoint") ?: "overlayMain"
+          OverlayManager.preloadFlutterEngine(context, dartEntryPoint)
+          result.success(true)
+        } catch (e: Exception) {
+          result.error("PRELOAD_ENGINE_ERROR", e.message, null)
+        }
+      }
+      
+      Constants.IS_FLUTTER_ENGINE_PRELOADED -> {
+        try {
+          val isPreloaded = OverlayManager.isFlutterEnginePreloaded()
+          result.success(isPreloaded)
+        } catch (e: Exception) {
+          result.error("CHECK_PRELOAD_ERROR", e.message, null)
+        }
+      }
+      
+      Constants.CLEANUP_PRELOADED_ENGINE -> {
+        try {
+          OverlayManager.cleanupPreloadedEngine()
+          result.success(true)
+        } catch (e: Exception) {
+          result.error("CLEANUP_ENGINE_ERROR", e.message, null)
+        }
+      }
+      
       else -> {
         result.notImplemented()
       }

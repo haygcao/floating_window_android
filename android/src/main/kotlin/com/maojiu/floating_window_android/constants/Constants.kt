@@ -71,4 +71,9 @@ object Constants {
     const val VISIBILITY_SECRET = "VISIBILITY_SECRET"
     const val VISIBILITY_PUBLIC = "VISIBILITY_PUBLIC"
     const val VISIBILITY_PRIVATE = "VISIBILITY_PRIVATE"
+
+    // Flutter engine preloading methods
+    const val PRELOAD_FLUTTER_ENGINE = "preloadFlutterEngine"
+    const val IS_FLUTTER_ENGINE_PRELOADED = "isFlutterEnginePreloaded"
+    const val CLEANUP_PRELOADED_ENGINE = "cleanupPreloadedEngine"
 } 

@@ -33,7 +33,6 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         Log.d(TAG, "[configureFlutterEngine] 初始化FlutterEngine并设置MethodChannel")
-
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         methodChannel?.setMethodCallHandler { call, result ->
             Log.d(TAG, "[Flutter -> Native] 收到方法调用: ${call.method}")
@@ -86,6 +85,7 @@ class MainActivity : FlutterActivity() {
 
     private fun sendPendingNavigationEvent() {
         val params = pendingParams
+        Log.d(TAG, "[sendPendingNavigationEvent] 发送导航事件: $params, methodChannel: $methodChannel")
         if (params != null && methodChannel != null) {
             Log.d(TAG, "[sendPendingNavigationEvent] 发送导航事件: $params")
 

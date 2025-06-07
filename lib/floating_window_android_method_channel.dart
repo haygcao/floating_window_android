@@ -154,6 +154,34 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
     return result ?? false;
   }
 
+  /// Preload Flutter engine for faster overlay startup
+  @override
+  Future<bool> preloadFlutterEngine(String dartEntryPoint) async {
+    final result = await methodChannel.invokeMethod<bool>(
+      Constants.preloadFlutterEngine,
+      {'dartEntryPoint': dartEntryPoint},
+    );
+    return result ?? false;
+  }
+
+  /// Check if Flutter engine is preloaded
+  @override
+  Future<bool> isFlutterEnginePreloaded() async {
+    final result = await methodChannel.invokeMethod<bool>(
+      Constants.isFlutterEnginePreloaded,
+    );
+    return result ?? false;
+  }
+
+  /// Clean up preloaded Flutter engine
+  @override
+  Future<bool> cleanupPreloadedEngine() async {
+    final result = await methodChannel.invokeMethod<bool>(
+      Constants.cleanupPreloadedEngine,
+    );
+    return result ?? false;
+  }
+
   @override
   Future<bool> openMainApp([Map<String, dynamic>? params]) async {
     final result = await methodChannel.invokeMethod<bool>(

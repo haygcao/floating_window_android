@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'pages/overlay_window.dart';
 import 'pages/permission.dart';
 
-// 悬浮窗入口点
+/// Entry point for the floating window overlay
 @pragma("vm:entry-point")
 void overlayMain() {
   runApp(
@@ -10,6 +10,7 @@ void overlayMain() {
   );
 }
 
+/// Main entry point for the application
 void main() {
   runApp(
     const MaterialApp(

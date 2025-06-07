@@ -1,6 +1,6 @@
 name: floating_window_android
 description: 'A Flutter plugin for displaying and managing floating windows on Android. Supports customizable positioning, dragging, styling, and interaction with the main app.'
-version: 1.0.0
+version: 1.1.0
 homepage: https://github.com/maojiu-bb/floating_window_android
 repository: https://github.com/maojiu-bb/floating_window_android
 issue_tracker: https://github.com/maojiu-bb/floating_window_android/issues

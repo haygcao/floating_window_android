@@ -103,4 +103,25 @@ abstract class FloatingWindowAndroidPlatform extends PlatformInterface {
   Future<bool> openMainApp([Map<String, dynamic>? params]) {
     throw UnimplementedError('openMainApp() has not been implemented.');
   }
+
+  /// Preload Flutter engine for faster overlay startup
+  Future<bool> preloadFlutterEngine(String dartEntryPoint) {
+    throw UnimplementedError(
+      'preloadFlutterEngine() has not been implemented.',
+    );
+  }
+
+  /// Check if Flutter engine is preloaded
+  Future<bool> isFlutterEnginePreloaded() {
+    throw UnimplementedError(
+      'isFlutterEnginePreloaded() has not been implemented.',
+    );
+  }
+
+  /// Clean up preloaded Flutter engine
+  Future<bool> cleanupPreloadedEngine() {
+    throw UnimplementedError(
+      'cleanupPreloadedEngine() has not been implemented.',
+    );
+  }
 }

@@ -5,12 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/api.dart';
-import '../model/price.dart';
-import '../widgets/price_list_item.dart';
+import '../model/github_event.dart';
+import '../widgets/github_event_list_item.dart';
 import 'permission.dart';
-
 import 'detail.dart';
 
+/// Main application widget showing GitHub events
 class App extends StatefulWidget {
   const App({super.key});
 
@@ -18,50 +18,96 @@ class App extends StatefulWidget {
   AppState createState() => AppState();
 }
 
-class AppState extends State<App> {
+class AppState extends State<App> with SingleTickerProviderStateMixin {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   static const String channelName = Constants.navigationEventChannel;
   late MethodChannel _channel;
+  late TabController _tabController;
 
-  List<Price> _prices = [];
+  List<GitHubEvent> _events = [];
+  List<Map<String, dynamic>> _trendingRepos = [];
+  bool _isLoading = false;
+  String _currentTab = 'public'; // 'public', 'user', 'trending'
 
-  static const String _selectedItemsKey = "selected_symbols";
-  static const String _selectedPricesDataKey = "selected_prices_data";
+  static const String _selectedItemsKey = "selected_events";
+  static const String _selectedEventsDataKey = "selected_events_data";
+  static const String _userInputKey = "github_username";
 
-  List<GlobalKey<PriceListItemState>> _itemKeys = [];
+  List<GlobalKey<GitHubEventListItemState>> _itemKeys = [];
+  bool _permissionDialogShown = false;
 
-  bool _permissionDialogShown = false; // 添加变量跟踪弹窗状态
+  final TextEditingController _usernameController = TextEditingController();
+  String _currentUsername = '';
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
 
-    // 初始化方法通道
+    // Initialize method channel
     _channel = const MethodChannel(channelName);
     _channel.setMethodCallHandler(_handleMethodCall);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _checkPermission();
+      await _loadSavedUsername();
       await _fetchData();
+
+      // Preload Flutter engine for faster overlay startup
+      await FloatingWindowAndroid.preloadFlutterEngine();
     });
   }
 
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _usernameController.dispose();
+    // Clean up preloaded Flutter engine
+    FloatingWindowAndroid.cleanupPreloadedEngine();
+    super.dispose();
+  }
+
+  Future<void> _loadSavedUsername() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedUsername = prefs.getString(_userInputKey) ?? '';
+      setState(() {
+        _currentUsername = savedUsername;
+        _usernameController.text = savedUsername;
+      });
+    } catch (e) {
+      debugPrint('Error loading saved username: $e');
+    }
+  }
+
+  Future<void> _saveUsername(String username) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userInputKey, username);
+      setState(() {
+        _currentUsername = username;
+      });
+    } catch (e) {
+      debugPrint('Error saving username: $e');
+    }
+  }
+
   Future<void> _checkPermission() async {
-    // 如果弹窗已经显示过，不再重复显示
+    // If dialog already shown, don't show again
     if (_permissionDialogShown) return;
 
-    // 检查权限
+    // Check permission
     bool permission = await FloatingWindowAndroid.isPermissionGranted();
 
     if (!permission && _navigatorKey.currentContext != null) {
-      // 如果没有权限，显示弹窗
-      _permissionDialogShown = true; // 标记弹窗已显示
+      // If no permission, show dialog
+      _permissionDialogShown = true;
       showDialog(
         context: _navigatorKey.currentContext!,
         barrierDismissible: false,
         builder: (context) => const PermissionDialog(),
       ).then((_) {
-        // 弹窗关闭后，隔一段时间再允许显示
+        // Allow showing dialog again after some time
         Future.delayed(const Duration(seconds: 5), () {
           _permissionDialogShown = false;
         });
@@ -69,99 +115,124 @@ class AppState extends State<App> {
     }
   }
 
-  // 处理从原生平台传递的方法调用
+  // Handle method calls from native platform
   Future<dynamic> _handleMethodCall(MethodCall call) async {
-    debugPrint('收到方法调用: ${call.method}，参数: ${call.arguments}');
+    debugPrint(
+      'Received method call: ${call.method}, arguments: ${call.arguments}',
+    );
 
     if (call.method == Constants.navigateToPage) {
-      final String? name = call.arguments['name'] as String?;
+      final String? eventId = call.arguments['name'] as String?;
 
-      debugPrint('准备导航到Detail页面，参数 name: $name');
+      debugPrint('Preparing to navigate to Detail page, event ID: $eventId');
 
-      if (name != null) {
+      if (eventId != null) {
         if (!mounted) {
-          debugPrint('组件已卸载，取消导航');
+          debugPrint('Widget unmounted, canceling navigation');
           return;
         }
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          debugPrint('执行导航操作');
+          debugPrint('Executing navigation');
           try {
-            _navigateToDetail(name);
+            _navigateToDetail(eventId);
           } catch (e) {
-            debugPrint('导航时发生错误: $e');
+            debugPrint('Navigation error: $e');
           }
         });
       } else {
-        debugPrint('导航参数不完整，取消导航');
+        debugPrint('Navigation parameters incomplete, canceling navigation');
       }
     }
     return null;
   }
 
-  void _navigateToDetail(String symbol) {
+  void _navigateToDetail(String eventId) {
     final NavigatorState? navigator = _navigatorKey.currentState;
     if (navigator == null) return;
 
-    var item = _prices.firstWhere((element) => element.symbol == symbol);
+    final event = _events.firstWhere(
+      (element) => element.id == eventId,
+      orElse:
+          () =>
+              _events.isNotEmpty
+                  ? _events.first
+                  : GitHubEvent(
+                    id: eventId,
+                    type: 'Unknown',
+                    actorLogin: 'Unknown',
+                    actorAvatarUrl: '',
+                    repoName: 'Unknown',
+                    repoUrl: '',
+                    createdAt: DateTime.now(),
+                  ),
+    );
 
     navigator.popUntil((route) => route.isFirst);
 
     navigator.push(
       MaterialPageRoute(
-        builder: (context) => Detail(name: item.symbol, value: item.price),
+        builder:
+            (context) =>
+                Detail(name: event.actorLogin, value: event.description),
       ),
     );
 
-    debugPrint('已导航到详情页，symbol = $symbol');
+    debugPrint('Navigated to detail page, event ID = $eventId');
   }
 
   Future<void> _showOverlay() async {
     bool permission = await FloatingWindowAndroid.isPermissionGranted();
     if (!permission) {
-      debugPrint("无法显示悬浮窗，权限被拒绝。");
+      debugPrint("Cannot show floating window, permission denied.");
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("请前往设置开启悬浮窗权限")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please enable floating window permission in settings"),
+        ),
+      );
       bool requested = await FloatingWindowAndroid.requestPermission();
       if (!requested) {
-        debugPrint("请求权限失败或用户未授予权限。");
+        debugPrint("Permission request failed or user denied permission.");
         return;
       }
       permission = await FloatingWindowAndroid.isPermissionGranted();
       if (!permission) return;
     }
 
-    // 先保存选中的项目到SharedPreferences
+    // Save selected items to SharedPreferences first
     await _saveSelectedItems();
 
-    // 保存完整的价格数据给悬浮窗使用
-    await _saveSelectedPriceData();
+    // Save complete event data for floating window use
+    await _saveSelectedEventData();
 
     // Check if overlay is already showing
     bool isShowing = await FloatingWindowAndroid.isShowing();
     if (isShowing) {
-      debugPrint("悬浮窗已在显示中。");
+      debugPrint("Floating window is already showing.");
       return;
     }
 
-    final selectedItems = _prices.where((item) => item.selected).toList();
+    final selectedItems = _events.where((item) => item.selected).toList();
     if (selectedItems.isEmpty) {
-      debugPrint("没有选中的项目，不显示悬浮窗。");
+      debugPrint("No selected items, not showing floating window.");
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("请选择至少一个项目以显示悬浮窗")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Please select at least one event to display floating window",
+          ),
+        ),
+      );
       return;
     }
 
     // ignore: use_build_context_synchronously
     final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
 
-    final width = (115 * devicePixelRatio).toInt();
-    final height = (70 * selectedItems.length * devicePixelRatio).toInt() + 150;
+    final width = (200 * devicePixelRatio).toInt();
+    final height = (50 * selectedItems.length * devicePixelRatio).toInt() + 100;
 
     bool? res = await FloatingWindowAndroid.showOverlay(
       height: height,
@@ -170,99 +241,124 @@ class AppState extends State<App> {
       flag: OverlayFlag.defaultFlag,
       enableDrag: true,
       positionGravity: PositionGravity.none,
-      overlayTitle: "情报监控",
-      overlayContent: "您的情报监控已开启",
+      overlayTitle: "GitHub Events Monitor",
+      overlayContent: "Your GitHub events monitor is active",
       notificationVisibility: NotificationVisibility.visibilityPublic,
     );
     debugPrint("show overlay ${res.toString()}");
   }
 
-  // 保存完整的价格数据，供悬浮窗使用
-  Future<void> _saveSelectedPriceData() async {
+  // Save complete event data for floating window use
+  Future<void> _saveSelectedEventData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final selectedItems = _prices.where((item) => item.selected).toList();
-      final selectedItemsJson = Price.encodeList(selectedItems);
+      final selectedItems = _events.where((item) => item.selected).toList();
+      final selectedItemsJson = GitHubEvent.encodeList(selectedItems);
 
-      // 保存完整的价格数据
-      await prefs.setString(_selectedPricesDataKey, selectedItemsJson);
-      debugPrint('已保存${selectedItems.length}个选中项的完整数据');
+      // Save complete event data
+      await prefs.setString(_selectedEventsDataKey, selectedItemsJson);
+      debugPrint(
+        'Saved complete data for ${selectedItems.length} selected events',
+      );
     } catch (e) {
-      debugPrint('保存价格数据时出错: $e');
+      debugPrint('Error saving event data: $e');
     }
   }
 
   Future<void> _fetchData() async {
-    final pricesResult = await Api.fetchData();
-    debugPrint('获取数据完成，数据长度: ${Price.encodeList(pricesResult)}');
-
-    List<Price> filterResult =
-        pricesResult
-            .where(
-              (item) =>
-                  num.parse(num.parse(item.price).toStringAsFixed(4)) != 0,
-            )
-            .map(
-              (item) => Price(
-                symbol: item.symbol,
-                price: num.parse(item.price).toStringAsFixed(4),
-              ),
-            )
-            .toList();
-
-    await _loadSelectedItems(filterResult);
-
     setState(() {
-      _prices = filterResult;
-      _itemKeys = List.generate(
-        _prices.length,
-        (_) => GlobalKey<PriceListItemState>(),
-      );
+      _isLoading = true;
     });
+
+    try {
+      List<GitHubEvent> eventsResult = [];
+
+      switch (_currentTab) {
+        case 'public':
+          eventsResult = await GitHubApi.fetchPublicEvents();
+          break;
+        case 'user':
+          if (_currentUsername.isNotEmpty) {
+            eventsResult = await GitHubApi.fetchUserEvents(_currentUsername);
+          }
+          break;
+        case 'trending':
+          final trendingResult = await GitHubApi.fetchTrendingRepos();
+          setState(() {
+            _trendingRepos = trendingResult;
+          });
+          break;
+      }
+
+      if (_currentTab != 'trending') {
+        debugPrint('Data fetch complete, event count: ${eventsResult.length}');
+
+        await _loadSelectedItems(eventsResult);
+
+        setState(() {
+          _events = eventsResult;
+          _itemKeys = List.generate(
+            _events.length,
+            (_) => GlobalKey<GitHubEventListItemState>(),
+          );
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error fetching data: $e')));
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
-  Future<void> _loadSelectedItems(List<Price> prices) async {
+  Future<void> _loadSelectedItems(List<GitHubEvent> events) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final selectedSymbols = prefs.getStringList(_selectedItemsKey) ?? [];
+      final selectedEventIds = prefs.getStringList(_selectedItemsKey) ?? [];
 
-      for (var i = 0; i < prices.length; i++) {
-        if (selectedSymbols.contains(prices[i].symbol)) {
-          prices[i].selected = true;
+      for (var i = 0; i < events.length; i++) {
+        if (selectedEventIds.contains(events[i].id)) {
+          events[i].selected = true;
         } else {
-          prices[i].selected = false;
+          events[i].selected = false;
         }
       }
     } catch (e) {
-      debugPrint('加载选择状态时出错: $e');
+      debugPrint('Error loading selection state: $e');
     }
   }
 
   Future<void> _saveSelectedItems() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final selectedSymbols =
-          _prices
-              .where((price) => price.selected)
-              .map((price) => price.symbol)
+      final selectedEventIds =
+          _events
+              .where((event) => event.selected)
+              .map((event) => event.id)
               .toList();
 
-      await prefs.setStringList(_selectedItemsKey, selectedSymbols);
-      debugPrint('已保存${selectedSymbols.length}个选中的符号');
+      await prefs.setStringList(_selectedItemsKey, selectedEventIds);
+      debugPrint('Saved ${selectedEventIds.length} selected event IDs');
     } catch (e) {
-      debugPrint('保存选择状态时出错: $e');
+      debugPrint('Error saving selection state: $e');
     }
   }
 
   void _toggleItemSelection(int index) {
-    final isCurrentlySelected = _prices[index].selected;
-    final selectedCount = _prices.where((price) => price.selected).length;
+    final isCurrentlySelected = _events[index].selected;
+    final selectedCount = _events.where((event) => event.selected).length;
 
     if (!isCurrentlySelected && selectedCount >= 5) {
       _itemKeys[index].currentState?.shake();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("最多只能选择5个项目"),
+          content: Text("Maximum 5 events can be selected"),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),
@@ -272,9 +368,94 @@ class AppState extends State<App> {
     }
 
     setState(() {
-      _prices[index].selected = !isCurrentlySelected;
+      _events[index].selected = !isCurrentlySelected;
     });
     _saveSelectedItems();
+  }
+
+  void _showUserInputDialog() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Enter GitHub Username'),
+            content: TextField(
+              controller: _usernameController,
+              decoration: const InputDecoration(
+                hintText: 'e.g. octocat',
+                labelText: 'Username',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  final username = _usernameController.text.trim();
+                  if (username.isNotEmpty) {
+                    _saveUsername(username);
+                    _fetchData();
+                  }
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildTrendingReposList() {
+    if (_trendingRepos.isEmpty) {
+      return const Center(child: Text('No trending repositories found'));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: _trendingRepos.length,
+      itemBuilder: (context, index) {
+        final repo = _trendingRepos[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+          child: ListTile(
+            leading: const Icon(Icons.star, color: Colors.orange),
+            title: Text(
+              repo['full_name'] ?? 'Unknown',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (repo['description'] != null)
+                  Text(
+                    repo['description'],
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.star, size: 16, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text('${repo['stargazers_count'] ?? 0}'),
+                    const SizedBox(width: 16),
+                    const Icon(Icons.code, size: 16, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(repo['language'] ?? 'Unknown'),
+                  ],
+                ),
+              ],
+            ),
+            onTap: () {
+              // Navigate to repository detail or open URL
+              debugPrint('Tapped on repo: ${repo['full_name']}');
+            },
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -282,48 +463,102 @@ class AppState extends State<App> {
     return MaterialApp(
       navigatorKey: _navigatorKey,
       theme: ThemeData(
-        primaryColor: const Color(0xFF1E88E5),
+        primaryColor: const Color(0xFF24292e),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1E88E5),
+          seedColor: const Color(0xFF24292e),
           brightness: Brightness.light,
         ),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1E88E5),
+          backgroundColor: Color(0xFF24292e),
           foregroundColor: Colors.white,
           elevation: 0,
         ),
       ),
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('情报监控'),
+          title: const Text('GitHub Events Monitor'),
           centerTitle: true,
           leading: IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchData,
           ),
           actions: [
+            if (_currentTab == 'user')
+              IconButton(
+                icon: const Icon(Icons.person_add),
+                onPressed: _showUserInputDialog,
+              ),
             IconButton(
               icon: const Icon(Icons.open_in_new),
               onPressed: _showOverlay,
             ),
           ],
+          bottom: TabBar(
+            controller: _tabController,
+            indicatorColor: Colors.white,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            onTap: (index) {
+              setState(() {
+                _currentTab = ['public', 'user', 'trending'][index];
+              });
+              _fetchData();
+            },
+            tabs: const [
+              Tab(text: 'Public', icon: Icon(Icons.public)),
+              Tab(text: 'User', icon: Icon(Icons.person)),
+              Tab(text: 'Trending', icon: Icon(Icons.trending_up)),
+            ],
+          ),
         ),
         body:
-            _prices.isEmpty
+            _isLoading
                 ? const Center(child: CircularProgressIndicator())
+                : _currentTab == 'trending'
+                ? _buildTrendingReposList()
+                : _events.isEmpty
+                ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        size: 64,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _currentTab == 'user' && _currentUsername.isEmpty
+                            ? 'Please enter a GitHub username'
+                            : 'No events found',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      if (_currentTab == 'user' && _currentUsername.isEmpty)
+                        const SizedBox(height: 16),
+                      if (_currentTab == 'user' && _currentUsername.isEmpty)
+                        ElevatedButton(
+                          onPressed: _showUserInputDialog,
+                          child: const Text('Enter Username'),
+                        ),
+                    ],
+                  ),
+                )
                 : ListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: _prices.length,
+                  itemCount: _events.length,
                   itemBuilder: (context, index) {
-                    final item = _prices[index];
-                    return PriceListItem(
+                    final event = _events[index];
+                    return GitHubEventListItem(
                       key: _itemKeys[index],
-                      item: item,
-                      isSelected: item.selected,
+                      event: event,
+                      isSelected: event.selected,
                       onTap: () {
-                        _navigateToDetail(item.symbol);
+                        _navigateToDetail(event.id);
                       },
-                      onToggleSelection: (value) {
+                      onToggleSelection: () {
                         _toggleItemSelection(index);
                       },
                     );

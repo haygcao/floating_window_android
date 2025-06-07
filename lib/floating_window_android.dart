@@ -222,4 +222,26 @@ class FloatingWindowAndroid {
   static Future<bool> isShowing() {
     return FloatingWindowAndroidPlatform.instance.isShowing();
   }
+
+  /// Preload Flutter engine for faster overlay startup
+  /// Call this method during app initialization to warm up the engine
+  /// [dartEntryPoint] - The Dart entry point for the overlay (default: "overlayMain")
+  static Future<bool> preloadFlutterEngine({
+    String dartEntryPoint = "overlayMain",
+  }) {
+    return FloatingWindowAndroidPlatform.instance.preloadFlutterEngine(
+      dartEntryPoint,
+    );
+  }
+
+  /// Check if Flutter engine is preloaded and ready for fast overlay startup
+  static Future<bool> isFlutterEnginePreloaded() {
+    return FloatingWindowAndroidPlatform.instance.isFlutterEnginePreloaded();
+  }
+
+  /// Clean up preloaded Flutter engine to free memory
+  /// Call this when the app is being destroyed or no longer needs overlay functionality
+  static Future<bool> cleanupPreloadedEngine() {
+    return FloatingWindowAndroidPlatform.instance.cleanupPreloadedEngine();
+  }
 }

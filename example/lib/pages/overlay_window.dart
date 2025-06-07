@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
-import '../model/price.dart';
+import '../model/github_event.dart';
 import '../api/api.dart';
+import '../widgets/github_event_list_item.dart';
 
+/// Overlay window displaying selected GitHub events
 class OverlayWindow extends StatefulWidget {
   const OverlayWindow({super.key});
 
@@ -14,31 +16,32 @@ class OverlayWindow extends StatefulWidget {
 }
 
 class _OverlayWindowState extends State<OverlayWindow> {
-  List<Price> _prices = [];
+  List<GitHubEvent> _events = [];
   bool _isLoading = true;
   Timer? _refreshTimer;
-  List<String> _selectedSymbols = [];
-  int _failureCount = 0; // 添加失败计数
+  List<String> _selectedEventIds = [];
+  int _failureCount = 0;
 
-  // 使用与主应用相同的键名
-  static const String _selectedItemsKey = "selected_symbols";
-  static const String _selectedPricesDataKey = "selected_prices_data";
+  // Use same key names as main app
+  static const String _selectedItemsKey = "selected_events";
+  static const String _selectedEventsDataKey = "selected_events_data";
 
-  // 绿色文本颜色
-  static const Color kGreenColor = Color(0xFF4CAF50);
+  // GitHub theme colors
+  static const Color kGitHubColor = Color(0xFF24292e);
+  static const Color kGreenColor = Color(0xFF28a745);
 
   @override
   void initState() {
     super.initState();
-    debugPrint('悬浮窗初始化...');
-    _loadSelectedPrices();
+    debugPrint('Overlay window initializing...');
+    _loadSelectedEvents();
 
-    // 设置定时器，每60秒刷新一次数据，减少请求频率
-    _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      // 根据失败次数调整刷新频率
+    // Set timer to refresh data every 5 minutes to reduce API calls
+    _refreshTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      // Adjust refresh frequency based on failure count
       if (_failureCount > 3) {
-        debugPrint('由于多次请求失败，本次刷新跳过');
-        _failureCount--; // 逐渐减少失败计数
+        debugPrint('Skipping refresh due to multiple failures');
+        _failureCount--; // Gradually reduce failure count
         return;
       }
 
@@ -52,16 +55,16 @@ class _OverlayWindowState extends State<OverlayWindow> {
     super.dispose();
   }
 
-  // 刷新数据
+  /// Refresh GitHub events data
   Future<void> _refreshData() async {
-    if (_selectedSymbols.isEmpty) {
-      debugPrint('没有选中的符号，无法刷新数据');
+    if (_selectedEventIds.isEmpty) {
+      debugPrint('No selected events, cannot refresh data');
       return;
     }
 
-    // 如果已经在加载中，跳过本次刷新
+    // Skip if already loading
     if (_isLoading) {
-      debugPrint('已经在加载中，跳过本次刷新');
+      debugPrint('Already loading, skipping refresh');
       return;
     }
 
@@ -69,151 +72,192 @@ class _OverlayWindowState extends State<OverlayWindow> {
       _isLoading = true;
     });
 
-    debugPrint('悬浮窗开始刷新数据...');
-    int successCount = 0;
-    int failCount = 0;
+    debugPrint('Overlay window starting data refresh...');
 
-    for (int i = 0; i < _prices.length; i++) {
-      try {
-        final updatedPrice = await Api.fetchPrice(_prices[i].symbol);
-        debugPrint('获取${_prices[i].symbol}价格结果: ${updatedPrice.price}');
-        if (updatedPrice.price.isNotEmpty &&
-            updatedPrice.price != _prices[i].price) {
-          _prices[i] = Price(
-            symbol: _prices[i].symbol,
-            price: num.parse(updatedPrice.price).toStringAsFixed(4),
-            selected: true,
-          );
-          successCount++;
-        } else if (updatedPrice.price.isNotEmpty) {
-          // 数据获取成功但价格未变
-          successCount++;
-        } else {
-          failCount++;
-        }
-      } catch (e) {
-        debugPrint('获取${_prices[i].symbol}价格时出错: $e');
-        failCount++;
-      }
-    }
+    try {
+      // Fetch latest public events
+      final latestEvents = await GitHubApi.fetchPublicEvents(perPage: 50);
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+      // Filter to only include selected events that are still in the latest feed
+      final updatedEvents = <GitHubEvent>[];
+      int foundCount = 0;
 
-      if (failCount > 0) {
-        _failureCount++;
-        debugPrint(
-          '数据刷新完成，成功:$successCount，失败:$failCount，累计失败次数:$_failureCount',
+      for (final selectedId in _selectedEventIds) {
+        final foundEvent = latestEvents.firstWhere(
+          (event) => event.id == selectedId,
+          orElse:
+              () => _events.firstWhere(
+                (event) => event.id == selectedId,
+                orElse:
+                    () => GitHubEvent(
+                      id: selectedId,
+                      type: 'Unknown',
+                      actorLogin: 'Unknown',
+                      actorAvatarUrl: '',
+                      repoName: 'Event not found',
+                      repoUrl: '',
+                      createdAt: DateTime.now(),
+                    ),
+              ),
         );
-      } else {
-        _failureCount = 0; // 重置失败计数
-        debugPrint('数据刷新完成，全部成功，数据项数: ${_prices.length}');
+
+        if (foundEvent.id == selectedId) {
+          updatedEvents.add(foundEvent.copyWith(selected: true));
+          if (latestEvents.any((e) => e.id == selectedId)) {
+            foundCount++;
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _events = updatedEvents;
+          _isLoading = false;
+        });
+
+        if (foundCount < _selectedEventIds.length) {
+          _failureCount++;
+          debugPrint(
+            'Data refresh completed, found: $foundCount/${_selectedEventIds.length}, failure count: $_failureCount',
+          );
+        } else {
+          _failureCount = 0; // Reset failure count
+          debugPrint(
+            'Data refresh completed successfully, events: ${_events.length}',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error refreshing GitHub events: $e');
+      _failureCount++;
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
 
-  Future<void> _loadSelectedPrices() async {
+  /// Load selected events from SharedPreferences
+  Future<void> _loadSelectedEvents() async {
     setState(() => _isLoading = true);
 
     try {
-      debugPrint('开始从SharedPreferences加载数据...');
+      debugPrint('Loading data from SharedPreferences...');
       final prefs = await SharedPreferences.getInstance();
 
-      // 先尝试从 'selected_prices_data' 获取完整数据
-      final selectedPricesJson = prefs.getString(_selectedPricesDataKey);
+      // Try to get complete data from 'selected_events_data'
+      final selectedEventsJson = prefs.getString(_selectedEventsDataKey);
 
-      // 获取选中的符号列表
-      _selectedSymbols = prefs.getStringList(_selectedItemsKey) ?? [];
+      // Get selected event IDs list
+      _selectedEventIds = prefs.getStringList(_selectedItemsKey) ?? [];
 
-      debugPrint('获取到的选中符号列表: $_selectedSymbols');
+      debugPrint('Retrieved selected event IDs: $_selectedEventIds');
 
-      if (selectedPricesJson != null) {
-        debugPrint('从缓存加载价格数据...');
-        final loadedPrices = Price.decodeList(selectedPricesJson);
+      if (selectedEventsJson != null) {
+        debugPrint('Loading event data from cache...');
+        final loadedEvents = GitHubEvent.decodeList(selectedEventsJson);
         setState(() {
-          _prices = loadedPrices;
+          _events = loadedEvents;
           _isLoading = false;
         });
 
-        debugPrint('从缓存加载了 ${loadedPrices.length} 个价格项');
+        debugPrint('Loaded ${loadedEvents.length} events from cache');
 
-        // 5秒后再刷新数据，优先显示缓存数据提升用户体验
-        Future.delayed(const Duration(seconds: 5), () {
+        // Refresh data after 10 seconds to prioritize cached data for better UX
+        Future.delayed(const Duration(seconds: 10), () {
           if (mounted) {
-            debugPrint('延迟5秒后开始刷新数据...');
+            debugPrint('Starting delayed data refresh...');
             _refreshData();
           }
         });
-      } else if (_selectedSymbols.isNotEmpty) {
-        debugPrint('没有缓存的价格数据，但有选中的符号，直接获取最新数据');
-        // 如果没有缓存的价格数据但有选中的符号，则直接获取最新数据
+      } else if (_selectedEventIds.isNotEmpty) {
+        debugPrint(
+          'No cached event data but have selected IDs, fetching latest data',
+        );
         _fetchLatestData();
       } else {
-        debugPrint('没有选中的符号，无法加载数据');
+        debugPrint('No selected events, cannot load data');
         setState(() => _isLoading = false);
       }
     } catch (e) {
-      debugPrint('加载价格数据时出错: $e');
+      debugPrint('Error loading event data: $e');
       setState(() => _isLoading = false);
     }
   }
 
-  // 获取最新的价格数据
+  /// Fetch latest GitHub events data
   Future<void> _fetchLatestData() async {
-    if (_selectedSymbols.isEmpty) {
-      debugPrint('没有选中的符号，无法获取最新数据');
+    if (_selectedEventIds.isEmpty) {
+      debugPrint('No selected events, cannot fetch latest data');
       setState(() {
         _isLoading = false;
-        _prices = []; // 确保列表为空，显示"暂无数据"
+        _events = []; // Ensure list is empty to show "No data"
       });
       return;
     }
 
-    debugPrint('开始获取最新价格数据...');
-    final List<Price> updatedPrices = [];
+    debugPrint('Fetching latest GitHub events data...');
+    final List<GitHubEvent> updatedEvents = [];
     bool hasError = false;
 
-    for (final symbol in _selectedSymbols) {
-      try {
-        debugPrint('获取$symbol的最新价格...');
-        final price = await Api.fetchPrice(symbol);
-        debugPrint('获取到$symbol的价格: ${price.price}');
-        if (price.symbol.isNotEmpty && price.price.isNotEmpty) {
-          updatedPrices.add(
-            Price(
-              symbol: symbol, // 使用原符号，避免API返回的符号不一致
-              price: num.parse(price.price).toStringAsFixed(4),
-              selected: true,
-            ),
-          );
-        } else {
-          // 如果API返回空数据，添加一个占位数据
-          updatedPrices.add(
-            Price(symbol: symbol, price: '0.0000', selected: true),
-          );
+    try {
+      // Fetch latest public events
+      final latestEvents = await GitHubApi.fetchPublicEvents(perPage: 100);
+
+      for (final eventId in _selectedEventIds) {
+        final foundEvent = latestEvents.firstWhere(
+          (event) => event.id == eventId,
+          orElse:
+              () => GitHubEvent(
+                id: eventId,
+                type: 'NotFound',
+                actorLogin: 'Unknown',
+                actorAvatarUrl: '',
+                repoName: 'Event not found in recent feed',
+                repoUrl: '',
+                createdAt: DateTime.now(),
+              ),
+        );
+
+        updatedEvents.add(foundEvent.copyWith(selected: true));
+
+        if (foundEvent.type == 'NotFound') {
           hasError = true;
         }
-      } catch (e) {
-        debugPrint('获取$symbol价格时出错: $e');
-        // 添加错误占位数据
-        updatedPrices.add(Price(symbol: symbol, price: '获取失败', selected: true));
-        hasError = true;
       }
+    } catch (e) {
+      debugPrint('Error fetching latest events: $e');
+      // Add error placeholder data
+      for (final eventId in _selectedEventIds) {
+        updatedEvents.add(
+          GitHubEvent(
+            id: eventId,
+            type: 'Error',
+            actorLogin: 'Error',
+            actorAvatarUrl: '',
+            repoName: 'Failed to fetch',
+            repoUrl: '',
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
+      hasError = true;
     }
 
     if (mounted) {
       setState(() {
-        _prices = updatedPrices;
+        _events = updatedEvents;
         _isLoading = false;
       });
-      debugPrint('已加载 ${updatedPrices.length} 个最新价格数据');
+      debugPrint('Loaded ${updatedEvents.length} latest event data');
 
-      if (hasError && updatedPrices.isNotEmpty) {
-        // 如果有错误但获取到了部分数据，1秒后重试
-        Future.delayed(const Duration(seconds: 1), () {
-          _refreshData();
+      if (hasError && updatedEvents.isNotEmpty) {
+        // If there are errors but some data was retrieved, retry after 30 seconds
+        Future.delayed(const Duration(seconds: 30), () {
+          if (mounted) {
+            _refreshData();
+          }
         });
       }
     }
@@ -225,12 +269,13 @@ class _OverlayWindowState extends State<OverlayWindow> {
       color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: .75),
+          color: kGitHubColor.withOpacity(0.95),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.1)),
         ),
         child: Stack(
           children: [
-            // 关闭按钮（右上角）
+            // Close button (top right)
             Positioned(
               top: 8,
               right: 8,
@@ -252,7 +297,7 @@ class _OverlayWindowState extends State<OverlayWindow> {
               ),
             ),
 
-            // 刷新按钮（左上角）
+            // Refresh button (top left)
             Positioned(
               top: 8,
               left: 8,
@@ -290,11 +335,11 @@ class _OverlayWindowState extends State<OverlayWindow> {
               ),
             ),
 
-            // 价格列表
+            // GitHub Events list
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
+              padding: const EdgeInsets.fromLTRB(8, 32, 8, 8),
               child:
-                  _prices.isEmpty
+                  _events.isEmpty
                       ? _isLoading
                           ? const Center(
                             child: SizedBox(
@@ -310,16 +355,19 @@ class _OverlayWindowState extends State<OverlayWindow> {
                           )
                           : const Center(
                             child: Text(
-                              "暂无数据",
+                              "No events selected",
                               style: TextStyle(color: Colors.white),
                             ),
                           )
-                      : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children:
-                            _prices
-                                .map((item) => _buildPriceItem(item))
-                                .toList(),
+                      : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _events.length,
+                        itemBuilder: (context, index) {
+                          return CompactGitHubEventItem(
+                            event: _events[index],
+                            onTap: () => _handleEventTap(_events[index]),
+                          );
+                        },
                       ),
             ),
           ],
@@ -328,66 +376,34 @@ class _OverlayWindowState extends State<OverlayWindow> {
     );
   }
 
-  // 构建价格项，简化为只显示 symbol 和 price
-  Widget _buildPriceItem(Price item) {
-    bool isError = item.price == '获取失败';
+  /// Handle tapping on an event in the overlay
+  Future<void> _handleEventTap(GitHubEvent event) async {
+    bool isError = event.type == 'Error' || event.type == 'NotFound';
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: GestureDetector(
-        onTap: () async {
-          if (isError) {
-            debugPrint('点击了错误项，尝试刷新数据');
-            _refreshData();
-            return;
-          }
+    if (isError) {
+      debugPrint('Tapped error item, attempting to refresh data');
+      _refreshData();
+      return;
+    }
 
-          debugPrint('点击悬浮窗项目: ${item.symbol}, 价格: ${item.price}');
+    debugPrint('Tapped overlay event: ${event.id}, actor: ${event.actorLogin}');
 
-          try {
-            // 先检查主应用是否已经在前台运行
-            final isMainAppRunning =
-                await FloatingWindowAndroid.isMainAppRunning();
+    try {
+      // Check if main app is already running in foreground
+      final isMainAppRunning = await FloatingWindowAndroid.isMainAppRunning();
 
-            if (isMainAppRunning) {
-              debugPrint('主应用已经在前台运行，不再导航');
-              // 可以显示一个提示，例如使用Toast或者Flushbar
-              return;
-            }
+      if (isMainAppRunning) {
+        debugPrint('Main app is already running in foreground, not navigating');
+        return;
+      }
 
-            final result = await FloatingWindowAndroid.openMainApp({
-              'name': item.symbol,
-            });
+      final result = await FloatingWindowAndroid.openMainApp({
+        'name': event.id,
+      });
 
-            debugPrint('打开主应用结果: $result');
-          } catch (e) {
-            debugPrint('打开主应用时出错: $e');
-          }
-        },
-        child: Column(
-          children: [
-            // 货币符号名称
-            Text(
-              item.symbol,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-
-            // 价格
-            Text(
-              item.price,
-              style: TextStyle(
-                fontSize: 18,
-                color: isError ? Colors.red : kGreenColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+      debugPrint('Open main app result: $result');
+    } catch (e) {
+      debugPrint('Error opening main app: $e');
+    }
   }
 }

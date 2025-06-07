@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'app.dart';
 
-// 权限请求弹窗
+/// Permission request dialog
 class PermissionDialog extends StatefulWidget {
   const PermissionDialog({super.key});
 
@@ -26,11 +26,11 @@ class _PermissionDialogState extends State<PermissionDialog> {
       _isLoading = true;
     });
 
-    // 检查权限
+    // Check permission
     bool permission = await FloatingWindowAndroid.isPermissionGranted();
 
     if (permission) {
-      // 已有权限，关闭弹窗
+      // Permission granted, close dialog
       setState(() {
         _isLoading = false;
       });
@@ -38,7 +38,7 @@ class _PermissionDialogState extends State<PermissionDialog> {
         Navigator.of(context).pop();
       }
     } else {
-      // 没有权限，显示请求对话框
+      // No permission, show request dialog
       setState(() {
         _isLoading = false;
       });
@@ -50,14 +50,14 @@ class _PermissionDialogState extends State<PermissionDialog> {
       _isLoading = true;
     });
 
-    // 请求权限
+    // Request permission
     await FloatingWindowAndroid.requestPermission();
 
-    // 再次检查权限
+    // Check permission again
     bool permission = await FloatingWindowAndroid.isPermissionGranted();
 
     if (permission) {
-      // 已获得权限，关闭弹窗
+      // Permission granted, close dialog
       setState(() {
         _isLoading = false;
       });
@@ -65,7 +65,7 @@ class _PermissionDialogState extends State<PermissionDialog> {
         Navigator.of(context).pop();
       }
     } else {
-      // 仍然没有权限，显示错误信息
+      // Still no permission, show error message
       setState(() {
         _isLoading = false;
       });
@@ -80,11 +80,11 @@ class _PermissionDialogState extends State<PermissionDialog> {
       actionsPadding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
       titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       title: const Text(
-        '需要悬浮窗权限',
+        'Floating Window Permission Required',
         style: TextStyle(fontSize: 18, fontWeight: FontWeight.normal),
       ),
       content: const Text(
-        '本应用需要悬浮窗权限才能正常工作。请授予权限后再使用。',
+        'This app requires floating window permission to work properly. Please grant the permission to continue.',
         style: TextStyle(fontSize: 14, color: Colors.black87),
       ),
       actions:
@@ -96,7 +96,7 @@ class _PermissionDialogState extends State<PermissionDialog> {
                     SystemNavigator.pop();
                   },
                   child: Text(
-                    '取消',
+                    'Cancel',
                     style: TextStyle(
                       fontSize: 14,
                       color: Theme.of(context).colorScheme.secondary,
@@ -106,7 +106,7 @@ class _PermissionDialogState extends State<PermissionDialog> {
                 TextButton(
                   onPressed: _requestPermission,
                   child: Text(
-                    '设置',
+                    'Settings',
                     style: TextStyle(
                       fontSize: 14,
                       color: Theme.of(context).colorScheme.primary,
@@ -118,7 +118,7 @@ class _PermissionDialogState extends State<PermissionDialog> {
   }
 }
 
-// 权限检查页面
+/// Permission check page
 class PermissionPage extends StatefulWidget {
   const PermissionPage({super.key});
 
@@ -134,11 +134,11 @@ class _PermissionPageState extends State<PermissionPage> {
   // }
 
   // Future<void> _checkPermission() async {
-  //   // 检查权限
+  //   // Check permission
   //   bool permission = await FloatingWindowAndroid.isPermissionGranted();
 
   //   if (!permission && mounted) {
-  //     // 如果没有权限，显示弹窗
+  //     // If no permission, show dialog
   //     WidgetsBinding.instance.addPostFrameCallback((_) {
   //       showDialog(
   //         context: context,
