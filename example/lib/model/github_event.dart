@@ -70,11 +70,13 @@ class GitHubEvent {
     );
   }
 
+  // ignore: unintended_html_in_doc_comment
   /// Convert List<GitHubEvent> to JSON string
   static String encodeList(List<GitHubEvent> events) {
     return jsonEncode(events.map((event) => event.toJson()).toList());
   }
 
+  // ignore: unintended_html_in_doc_comment
   /// Parse List<GitHubEvent> from JSON string
   static List<GitHubEvent> decodeList(String jsonString) {
     List<dynamic> jsonList = jsonDecode(jsonString);
