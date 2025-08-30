@@ -1,3 +1,7 @@
+## 1.1.1
+
+- Lower the minimum Flutter version to 3.10.0 and Dart version to 3.0.0
+
 ## 1.1.0
 
 ### Added
