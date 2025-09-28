@@ -43,6 +43,7 @@ object Constants {
     const val CLICK_THROUGH = "clickThrough"
     const val DEFAULT_FLAG = "defaultFlag"
     const val FOCUS_POINTER = "focusPointer"
+    const val LOCK_SCREEN = "lockScreen"
 
     // Alignment constants
     const val TOP = "top"
@@ -76,4 +77,4 @@ object Constants {
     const val PRELOAD_FLUTTER_ENGINE = "preloadFlutterEngine"
     const val IS_FLUTTER_ENGINE_PRELOADED = "isFlutterEnginePreloaded"
     const val CLEANUP_PRELOADED_ENGINE = "cleanupPreloadedEngine"
-} 
+}
