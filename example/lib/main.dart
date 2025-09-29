@@ -57,7 +57,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Overlay Final Test'),
+          title: const Text('Overlay Final Test', style: TextStyle(color: Color.fromARGB(255, 2, 2, 2))),
         ),
         body: Center(
           child: Padding(
@@ -74,13 +74,13 @@ class _MyAppState extends State<MyApp> {
                     _showFeedback(granted ? "Permission check/request completed!" : "Some permissions denied, please check settings.", isSuccess: granted);
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
-                  child: const Text('1. Request All Permissions'),
+                  child: const Text('1. Request All Permissions', style: TextStyle(color: Colors.white)),
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: CallKitService.showIncomingCall,
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                  child: const Text('2. Simulate Incoming Call (Trigger Overlay)'),
+                  child: const Text('2. Simulate Incoming Call (Trigger Overlay)', style: TextStyle(color: Colors.white)),
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(
@@ -90,7 +90,7 @@ class _MyAppState extends State<MyApp> {
                     _showFeedback("Close overlay command sent.");
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  child: const Text('3. Manually Close Overlay'),
+                  child: const Text('3. Manually Close Overlay', style: TextStyle(color: Colors.white)),
                 ),
               ],
             ),
