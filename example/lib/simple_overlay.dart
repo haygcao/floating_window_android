@@ -40,22 +40,19 @@ class _SimpleOverlayState extends State<SimpleOverlay> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: 
-      // +++ 核心修正：在最外层包裹一个 GestureDetector 来捕捉背景点击 +++
-      GestureDetector(
-        onTap: _closeOverlay, // 点击背景时，调用关闭方法
-        child: Scaffold(
-          backgroundColor: Colors.transparent, // 背景设为透明，让 GestureDetector 生效
-          body: Center(
+      home: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: GestureDetector(
+            onTap: _closeOverlay, // 点击黑色区域会调用 _closeOverlay
             child: Container(
-              // 创建一个可见的背景板，防止点击穿透到按钮
               padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
               decoration: BoxDecoration(
                 color: Colors.black.withOpacity(0.8),
-                borderRadius: BorderRadius.circular(16.0), // 可选：美化UI
+                borderRadius: BorderRadius.circular(16.0),
               ),
               child: Column(
-                mainAxisSize: MainAxisSize.min, // 让 Column 包裹内容
+                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   CircleAvatar(
@@ -105,7 +102,7 @@ class _SimpleOverlayState extends State<SimpleOverlay> {
     return Column(
       children: [
         GestureDetector(
-          onTap: onPressed, // 按钮点击事件
+          onTap: onPressed, // 按钮的 onTap 会被优先触发
           child: Container(
             width: 60,
             height: 60,
@@ -118,14 +115,15 @@ class _SimpleOverlayState extends State<SimpleOverlay> {
       ],
     );
   }
-  
-  // +++ 新增：一个专门用于关闭悬浮窗的方法 +++
+
   void _closeOverlay() async {
-    print("悬浮窗背景被点击，关闭...");
+    print("悬浮窗背景被点击，正在关闭...");
     try {
-      await FloatingWindowAndroid.closeOverlay();
+      // +++ 关键修正 +++
+      // 在悬浮窗内部，必须使用 closeOverlayFromOverlay()
+      await FloatingWindowAndroid.closeOverlayFromOverlay();
     } catch (e) {
-      print("从背景点击关闭悬浮窗时出错: $e");
+      print("从悬浮窗关闭时出错: $e");
     }
   }
 
@@ -147,11 +145,14 @@ class _SimpleOverlayState extends State<SimpleOverlay> {
       if (callId != null) {
         await FlutterCallkitIncoming.endCall(callId);
       }
-      await FloatingWindowAndroid.closeOverlay();
+      // +++ 关键修正 +++
+      // 在悬浮窗内部，必须使用 closeOverlayFromOverlay()
+      await FloatingWindowAndroid.closeOverlayFromOverlay();
     } catch (e) {
       print("结束通话或关闭悬浮窗时出错: $e");
       try {
-        await FloatingWindowAndroid.closeOverlay();
+        // +++ 关键修正 +++
+        await FloatingWindowAndroid.closeOverlayFromOverlay();
       } catch (e2) { /* 忽略二次错误 */ }
     }
   }
