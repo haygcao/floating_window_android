@@ -241,13 +241,13 @@ class OverlayManager(
     ): WindowManager.LayoutParams {
         val params = WindowManager.LayoutParams().apply {
             format = PixelFormat.TRANSLUCENT
-
+            
             // Set flags based on flag and enableDrag
-            val baseFlags = when (flag) {
+            flags = when (flag) {
                 Constants.CLICK_THROUGH -> {
                     // Click through: window doesn't receive any events
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                 }
                 Constants.FOCUS_POINTER -> {
                     // Focus pointer: allows external events, self-interactive (remove NOT_FOCUSABLE)
@@ -255,9 +255,12 @@ class OverlayManager(
                 }
                 Constants.LOCK_SCREEN -> {
                     // For lock screen: show on lock screen and wake up screen
+                                      (WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH) or 
                     WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                            WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
                 }
                 else -> { // defaultFlag
                     // For system gesture compatibility, use a combination of flags that:
@@ -265,23 +268,17 @@ class OverlayManager(
                     // 2. Prevent the overlay from blocking system navigation
                     // 3. Still allow interaction with the overlay content
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
                 }
             }
-
-            // Add lock screen flags to ensure it can be displayed on the lock screen
-            flags = baseFlags or
-                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
-
+            
             type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             } else {
                 WindowManager.LayoutParams.TYPE_PHONE
             }
-
+            
             this.width = if (width == Constants.MATCH_PARENT) {
                 WindowManager.LayoutParams.MATCH_PARENT
             } else if (width == Constants.WRAP_CONTENT) {
@@ -289,7 +286,7 @@ class OverlayManager(
             } else {
                 width
             }
-
+            
             this.height = if (height == Constants.MATCH_PARENT) {
                 WindowManager.LayoutParams.MATCH_PARENT
             } else if (height == Constants.WRAP_CONTENT) {
@@ -297,7 +294,7 @@ class OverlayManager(
             } else {
                 height
             }
-
+            
             gravity = when (alignment) {
                 Constants.TOP -> Gravity.TOP or Gravity.CENTER_HORIZONTAL
                 Constants.BOTTOM -> Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
@@ -310,7 +307,7 @@ class OverlayManager(
                 else -> Gravity.CENTER
             }
         }
-
+        
         return params
     }
     
