@@ -253,6 +253,15 @@ class OverlayManager(
                     // Focus pointer: allows external events, self-interactive (remove NOT_FOCUSABLE)
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                 }
+                Constants.LOCK_SCREEN -> {
+                    // For lock screen: show on lock screen and wake up screen
+                                      (WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH) or 
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                }
                 else -> { // defaultFlag
                     // For system gesture compatibility, use a combination of flags that:
                     // 1. Allow system gestures to work properly
@@ -584,4 +593,4 @@ class OverlayManager(
     fun isShowing(): Boolean {
         return overlayView != null && overlayView?.isAttachedToWindow == true
     }
-} 
+}

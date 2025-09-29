@@ -13,6 +13,9 @@ enum OverlayFlag {
 
   /// Focus pointer - Allows pointer events outside the floating window to be sent to the windows behind, suitable for input boxes that need to display a keyboard
   focusPointer,
+
+  /// Lock screen - The floating window will be displayed on the lock screen
+  lockScreen,
 }
 
 /// Position gravity type - Controls the position behavior of the floating window after dragging
