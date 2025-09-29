@@ -34,7 +34,7 @@ class _SimpleOverlayState extends State<SimpleOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final String callerName = _callData['nameCaller'] ?? '未知来电';
+    final String callerName = _callData['nameCaller'] ?? 'Unknown Caller';
     final String handle = _callData['handle'] ?? '...';
     final String avatarUrl = _callData['avatar'] ?? '';
 
@@ -44,7 +44,7 @@ class _SimpleOverlayState extends State<SimpleOverlay> {
         backgroundColor: Colors.transparent,
         body: Center(
           child: GestureDetector(
-            onTap: _closeOverlay, // 点击黑色区域会调用 _closeOverlay
+            onTap: _closeOverlay, // Tapping the black area will call _closeOverlay
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
               decoration: BoxDecoration(
@@ -76,13 +76,13 @@ class _SimpleOverlayState extends State<SimpleOverlay> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       _buildCallButton(
-                        '拒绝',
+                        'Decline',
                         Colors.red,
                         Icons.call_end,
                         _onDecline,
                       ),
                       _buildCallButton(
-                        '接听',
+                        'Accept',
                         Colors.green,
                         Icons.call,
                         _onAccept,
@@ -102,7 +102,7 @@ class _SimpleOverlayState extends State<SimpleOverlay> {
     return Column(
       children: [
         GestureDetector(
-          onTap: onPressed, // 按钮的 onTap 会被优先触发
+          onTap: onPressed, // The onTap of the button will be triggered first
           child: Container(
             width: 60,
             height: 60,
@@ -117,24 +117,24 @@ class _SimpleOverlayState extends State<SimpleOverlay> {
   }
 
   void _closeOverlay() async {
-    print("悬浮窗背景被点击，正在关闭...");
+    print("Overlay background tapped, closing...");
     try {
-      // +++ 关键修正 +++
-      // 在悬浮窗内部，必须使用 closeOverlayFromOverlay()
+      // +++ Critical fix +++
+      // Inside the overlay, closeOverlayFromOverlay() must be used
       await FloatingWindowAndroid.closeOverlayFromOverlay();
     } catch (e) {
-      print("从悬浮窗关闭时出错: $e");
+      print("Error closing from overlay: $e");
     }
   }
 
   void _onAccept() async {
-    print("悬浮窗: 接听按钮被点击");
+    print("Overlay: Accept button tapped");
     await FloatingWindowAndroid.shareData({'action': 'CALL_ACCEPTED'});
     _endCallAndCloseOverlay();
   }
 
   void _onDecline() async {
-    print("悬浮窗: 拒绝按钮被点击");
+    print("Overlay: Decline button tapped");
     await FloatingWindowAndroid.shareData({'action': 'CALL_DECLINED'});
     _endCallAndCloseOverlay();
   }
@@ -145,15 +145,15 @@ class _SimpleOverlayState extends State<SimpleOverlay> {
       if (callId != null) {
         await FlutterCallkitIncoming.endCall(callId);
       }
-      // +++ 关键修正 +++
-      // 在悬浮窗内部，必须使用 closeOverlayFromOverlay()
+      // +++ Critical fix +++
+      // Inside the overlay, closeOverlayFromOverlay() must be used
       await FloatingWindowAndroid.closeOverlayFromOverlay();
     } catch (e) {
-      print("结束通话或关闭悬浮窗时出错: $e");
+      print("Error ending call or closing overlay: $e");
       try {
-        // +++ 关键修正 +++
+        // +++ Critical fix +++
         await FloatingWindowAndroid.closeOverlayFromOverlay();
-      } catch (e2) { /* 忽略二次错误 */ }
+      } catch (e2) { /* Ignore secondary error */ }
     }
   }
 }

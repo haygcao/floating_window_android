@@ -7,72 +7,72 @@ import 'package:floating_window_android/floating_window_android.dart';
 import 'package:phone_state/phone_state.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-/// 一个集成了权限请求、模拟来电和真实电话监听的综合服务类。
+/// A comprehensive service class integrating permission requests, simulated incoming calls, and real phone monitoring.
 class CallKitService {
-  // 用于管理真实电话状态监听的 StreamSubscription
+  // StreamSubscription for managing real phone state listening
   static StreamSubscription<PhoneState>? _phoneStateSubscription;
 
-  /// 核心入口：初始化所有服务，并在开始前自动化请求所有必需的权限。
+  /// Core entry point: Initializes all services and automatically requests all necessary permissions before starting.
   static Future<void> initCallKit() async {
-    print("--- CallKitService 初始化开始 ---");
+    print("--- CallKitService Initialization Started ---");
     
-    // 步骤 1: 自动化请求所有必需的权限
+    // Step 1: Automatically request all necessary permissions
     await requestAllPermissions(); 
 
-    // 步骤 2: 监听 flutter_callkit_incoming 插件的事件 (用于模拟来电)
+    // Step 2: Listen for flutter_callkit_incoming plugin events (for simulated incoming calls)
     FlutterCallkitIncoming.onEvent.listen((event) async {
       if (event == null) return;
-      print("收到 CallKit (模拟来电) 事件: ${event.event}");
+      print("Received CallKit (Simulated Incoming Call) Event: ${event.event}");
       
       switch (event.event) {
         case Event.actionCallIncoming:
-          print("事件详情: 收到模拟来电，准备显示 Overlay...");
-          // CallKit 的 event.body 结构比较复杂，我们直接传递整个 body
+          print("Event Details: Received simulated incoming call, preparing to display Overlay...");
+          // The structure of CallKit's event.body is complex, we pass the entire body directly
           await showOverlay(event.body); 
           break;
         case Event.actionCallAccept:
         case Event.actionCallDecline:
         case Event.actionCallEnded:
         case Event.actionCallTimeout:
-          print("事件详情: 模拟来电已结束/拒绝/超时，准备关闭 Overlay...");
+          print("Event Details: Simulated incoming call ended/declined/timed out, preparing to close Overlay...");
           try {
             await FloatingWindowAndroid.closeOverlay();
           } catch (e) {
-            print("关闭模拟来电 Overlay 时出错 (可能已关闭): $e");
+            print("Error closing simulated incoming call Overlay (may already be closed): $e");
           }
           break;
         default:
-          print("事件详情: 未处理的 CallKit 事件: ${event.event}");
+          print("Event Details: Unhandled CallKit event: ${event.event}");
           break;
       }
     });
-    print("状态: 已启动对 '模拟来电' 的监听。");
+    print("Status: Listening for 'Simulated Incoming Calls' started.");
 
-    // 步骤 3: 监听真实的系统电话状态
-    _phoneStateSubscription?.cancel(); // 先取消可能存在的旧监听，防止重复
+    // Step 3: Listen for real system phone status
+    _phoneStateSubscription?.cancel(); // Cancel any existing listeners to prevent duplication
     _phoneStateSubscription = PhoneState.stream.listen((phoneState) async {
       if (phoneState == null) return;
-      print("真实电话状态变化: ${phoneState.status}, 号码: ${phoneState.number}");
+      print("Real phone state changed: ${phoneState.status}, Number: ${phoneState.number}");
 
       if (phoneState.status == PhoneStateStatus.CALL_INCOMING) {
-        await handleRealPhoneCall(phoneState.number ?? '未知号码', '系统来电');
+        await handleRealPhoneCall(phoneState.number ?? 'Unknown Number', 'System Incoming Call');
       } else if (phoneState.status == PhoneStateStatus.CALL_ENDED || phoneState.status == PhoneStateStatus.NOTHING) {
-        print("真实电话已结束，准备关闭 Overlay...");
+        print("Real phone call ended, preparing to close Overlay...");
         try {
           await FloatingWindowAndroid.closeOverlay();
         } catch (e) {
-          print("关闭真实来电 Overlay 时出错 (可能已关闭): $e");
+          print("Error closing real incoming call Overlay (may already be closed): $e");
         }
       }
     });
-    print("状态: 已启动对 '真实系统来电' 的监听。");
+    print("Status: Listening for 'Real System Incoming Calls' started.");
 
-    print("--- CallKitService 初始化完成 ---");
+    print("--- CallKitService Initialization Completed ---");
   }
 
-  /// 使用 permission_handler 自动化请求所有权限的公共方法
+  /// Public method to automatically request all permissions using permission_handler
   static Future<bool> requestAllPermissions() async {
-    print("权限检查: 开始请求所有权限...");
+    print("Permission Check: Starting to request all permissions...");
     Map<Permission, PermissionStatus> statuses = await [
       Permission.phone,
       Permission.notification,
@@ -82,24 +82,24 @@ class CallKitService {
 
     bool allGranted = true;
     statuses.forEach((permission, status) {
-      print('权限状态 - ${permission.toString()}: ${status.toString()}');
+      print('Permission Status - ${permission.toString()}: ${status.toString()}');
       if (!status.isGranted) {
         allGranted = false;
         if (permission == Permission.systemAlertWindow || permission == Permission.scheduleExactAlarm) {
-            print("引导: ${permission.toString()} 权限需要用户在系统设置中手动开启。");
-            openAppSettings(); // 自动引导用户去设置页面
+            print("Guidance: ${permission.toString()} permission requires manual enabling in system settings.");
+            openAppSettings(); // Automatically guide the user to the settings page
         }
       }
     });
     return allGranted;
   }
   
-  /// 显示悬浮窗的核心方法
+  /// Core method to display the overlay
   static Future<void> showOverlay(Map<String, dynamic> data) async {
-    print("Overlay操作: 准备显示悬浮窗，数据: $data");
+    print("Overlay Operation: Preparing to display overlay, data: $data");
     try {
       await FloatingWindowAndroid.closeOverlay();
-      print("Overlay操作: 旧悬浮窗已关闭（如果存在）。");
+      print("Overlay Operation: Old overlay closed (if existed).");
 
       await FloatingWindowAndroid.showOverlay(
         height: 1000,
@@ -111,21 +111,21 @@ class CallKitService {
       );
       
       await FloatingWindowAndroid.shareData(data);
-      print("Overlay操作: 悬浮窗显示并传递数据成功！");
+      print("Overlay Operation: Overlay displayed and data passed successfully!");
     } catch (e) {
-      print("Overlay操作: 显示/操作悬浮窗时发生严重错误: $e");
+      print("Overlay Operation: Serious error occurred while displaying/operating overlay: $e");
     }
   }
 
-  /// 模拟一个来电，用于测试
+  /// Simulates an incoming call for testing
   static Future<void> showIncomingCall() async {
-    print("模拟来电: 开始...");
+    print("Simulated Incoming Call: Starting...");
     try {
       final String callId = DateTime.now().millisecondsSinceEpoch.toString();
       final params = CallKitParams(
         id: callId,
-        nameCaller: '模拟来电者',
-        appName: '悬浮窗测试',
+        nameCaller: 'Simulated Caller',
+        appName: 'Overlay Test',
         avatar: 'https://i.pravatar.cc/100',
         handle: '10086',
         type: 0,
@@ -137,27 +137,27 @@ class CallKitService {
       );
       
       await FlutterCallkitIncoming.showCallkitIncoming(params);
-      print("模拟来电: 通知已发出，等待 onEvent 触发...");
+      print("Simulated Incoming Call: Notification sent, waiting for onEvent to trigger...");
     } catch (e) {
-      print("模拟来电: 过程中出错: $e");
+      print("Simulated Incoming Call: Error during process: $e");
     }
   }
   
-  /// 处理真实系统来电的入口方法
+  /// Entry method to handle real system incoming calls
   static Future<void> handleRealPhoneCall(String phoneNumber, String callerName) async {
-    print("真实来电处理: $callerName ($phoneNumber)");
+    print("Real Incoming Call Handling: $callerName ($phoneNumber)");
     await showOverlay({
       'id': 'system_call_${DateTime.now().millisecondsSinceEpoch}',
-      'nameCaller': callerName, // 保持键名与CallKit一致
+      'nameCaller': callerName, // Keep key name consistent with CallKit
       'handle': phoneNumber,
       'isSystemCall': true,
     });
   }
 
-  /// 停止所有监听服务，释放资源
+  /// Stops all listening services and releases resources
   static void dispose() {
     _phoneStateSubscription?.cancel();
     _phoneStateSubscription = null;
-    print("所有电话状态监听已停止并释放资源。");
+    print("All phone state listeners stopped and resources released.");
   }
 }

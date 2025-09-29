@@ -4,15 +4,15 @@ import 'package:floating_window_android_example/callkit_service.dart';
 import 'package:floating_window_android_example/simple_overlay.dart';
 
 void main() async {
-  // 确保 Flutter 绑定已初始化
+  // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
-  // 在 App 启动时，调用初始化方法，它会自动处理所有权限和
+  // When the App starts, call the initialization method, it will automatically handle all permissions and
     await FloatingWindowAndroid.preloadFlutterEngine();
   await CallKitService.initCallKit();
   runApp(const MyApp());
 }
 
-// 悬浮窗的独立 Dart 入口点
+// Independent Dart entry point for the overlay
 @pragma("vm:entry-point")
 void overlayMain() {
   runApp(const SimpleOverlay());
@@ -26,16 +26,16 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String _statusMessage = "等待操作...";
+  String _statusMessage = "Waiting for operation...";
 
   @override
   void initState() {
     super.initState();
-    // 监听从悬浮窗返回的事件，用于更新UI状态
+    // Listen for events returned from the overlay to update UI state
     FloatingWindowAndroid.overlayListener.listen((event) {
       if (event is Map<String, dynamic> && mounted) {
         setState(() {
-          _statusMessage = "悬浮窗返回事件: ${event['action']}";
+          _statusMessage = "Overlay event returned: ${event['action']}";
         });
       }
     });
@@ -57,7 +57,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('悬浮窗最终测试'),
+          title: const Text('Overlay Final Test'),
         ),
         body: Center(
           child: Padding(
@@ -66,31 +66,31 @@ class _MyAppState extends State<MyApp> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('当前状态: $_statusMessage', textAlign: TextAlign.center),
+                Text('Current Status: $_statusMessage', textAlign: TextAlign.center),
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: () async {
                     final granted = await CallKitService.requestAllPermissions();
-                    _showFeedback(granted ? "权限检查/请求完成！" : "部分权限被拒绝，请检查设置。", isSuccess: granted);
+                    _showFeedback(granted ? "Permission check/request completed!" : "Some permissions denied, please check settings.", isSuccess: granted);
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
-                  child: const Text('1. 请求所有权限'),
+                  child: const Text('1. Request All Permissions'),
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: CallKitService.showIncomingCall,
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                  child: const Text('2. 模拟来电 (触发Overlay)'),
+                  child: const Text('2. Simulate Incoming Call (Trigger Overlay)'),
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: () async {
-                    print("测试：正在关闭悬浮窗...");
+                    print("Test: Closing overlay...");
                     await FloatingWindowAndroid.closeOverlay();
-                    _showFeedback("已发送关闭悬浮窗指令。");
+                    _showFeedback("Close overlay command sent.");
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  child: const Text('3. 手动关闭悬浮窗'),
+                  child: const Text('3. Manually Close Overlay'),
                 ),
               ],
             ),
