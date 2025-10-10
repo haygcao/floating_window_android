@@ -7,7 +7,8 @@ import 'package:floating_window_android/floating_window_android.dart';
 import 'package:phone_state/phone_state.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-/// A comprehensive service class integrating permission requests, simulated incoming calls, and real phone monitoring.
+/// A comprehensive service class integrating permission requests, simulated incoming calls, 
+/// and real phone monitoring, now with an added method for stress testing the overlay plugin.
 class CallKitService {
   // StreamSubscription for managing real phone state listening
   static StreamSubscription<PhoneState>? _phoneStateSubscription;
@@ -94,22 +95,27 @@ class CallKitService {
     return allGranted;
   }
   
-  /// Core method to display the overlay
+  /// Core method to display the overlay.
+  /// This method tests the modified plugin's ability to handle rapid, sequential calls.
   static Future<void> showOverlay(Map<String, dynamic> data) async {
     print("Overlay Operation: Preparing to display overlay, data: $data");
     try {
+      // Step 1: Close any existing overlay. This tests the plugin's state reset.
       await FloatingWindowAndroid.closeOverlay();
       print("Overlay Operation: Old overlay closed (if existed).");
 
+      // Step 2: Show a new overlay. The `await` here is critical, as it now waits 
+      // for the internal handshake to complete thanks to our plugin modifications.
       await FloatingWindowAndroid.showOverlay(
         height: 1000,
         width: 950,
        alignment: OverlayAlignment.center,
        flag: OverlayFlag.lockScreen,
-       
         enableDrag: true,
       );
       
+      // Step 3: Share data. Because the `showOverlay` future completed, we can be
+      // 100% confident that the overlay is ready to receive this data.
       await FloatingWindowAndroid.shareData(data);
       print("Overlay Operation: Overlay displayed and data passed successfully!");
     } catch (e) {
@@ -143,13 +149,58 @@ class CallKitService {
     }
   }
   
+  /// [NEW] A dedicated method to stress test the overlay plugin with complex, nested mock data.
+  /// Call this from a UI button to perform a robust end-to-end test.
+  static Future<void> testWithComplexMockData() async {
+    print("--- Starting Test with Complex Mock Data ---");
+
+    // 1. Construct a complex, multi-level, multi-type mock Map.
+    // This mimics the complexity of real-world data from APIs or other plugins.
+    final complexData = {
+      'id': 'mock_id_${DateTime.now().millisecondsSinceEpoch}',
+      'nameCaller': 'Dr. Evelyn Reed (Mock)',
+      'appName': 'Plugin Stress Test',
+      'avatar': 'https://i.pravatar.cc/150?u=mockuser',
+      'handle': '+1 (555) 123-4567',
+      'type': 0, // Voice call
+      'duration': 30000,
+      'extra': {
+        'userId': 'user-abcdef-123456',
+        'call_type': 'premium_support',
+        'encryption_enabled': true,
+        'call_quality_score': 4.8,
+        'regional_servers': ['us-west', 'eu-central', 'ap-southeast'],
+        'metadata': null // Testing a null value
+      },
+      'android': {
+        'isCustomNotification': true,
+        'isShowLogo': false,
+        'ringtonePath': 'system_ringtone_default',
+        'backgroundColor': '#091C40',
+        'actionColor': '#4CAF50'
+      },
+      'ios': {
+        'supportsVideo': false,
+        'includesCallsInRecents': true
+      },
+      'isSystemCall': false, // Explicitly add all keys the UI might expect
+    };
+
+    // 2. Directly call the core showOverlay method, passing in this complex data.
+    // This perfectly reproduces the real-world usage pattern from the onEvent listener.
+    await showOverlay(complexData);
+
+    print("--- Test with Complex Mock Data Completed ---");
+  }
+
   /// Entry method to handle real system incoming calls
   static Future<void> handleRealPhoneCall(String phoneNumber, String callerName) async {
     print("Real Incoming Call Handling: $callerName ($phoneNumber)");
     await showOverlay({
       'id': 'system_call_${DateTime.now().millisecondsSinceEpoch}',
-      'nameCaller': callerName, // Keep key name consistent with CallKit
+      'nameCaller': callerName, // Keep key names consistent with CallKit
       'handle': phoneNumber,
+      'avatar': '', // Ensure avatar exists to prevent null errors in UI
       'isSystemCall': true,
     });
   }
@@ -158,6 +209,7 @@ class CallKitService {
   static void dispose() {
     _phoneStateSubscription?.cancel();
     _phoneStateSubscription = null;
+    FlutterCallkitIncoming.onEvent.listen(null); // Recommended way to clear listener
     print("All phone state listeners stopped and resources released.");
   }
 }
