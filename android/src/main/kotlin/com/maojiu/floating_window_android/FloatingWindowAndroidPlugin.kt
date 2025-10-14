@@ -17,39 +17,44 @@ import io.flutter.plugin.common.MethodChannel.Result
 
 /** FloatingWindowAndroidPlugin */
 class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
-  /// The MethodChannel that will the communication between Flutter and native Android
-  ///
-  /// This local reference serves to register the plugin with the Flutter Engine and unregister it
-  /// when the Flutter Engine is detached from the Activity
   private lateinit var channel : MethodChannel
   private lateinit var eventChannel: EventChannel
   private lateinit var context: Context
   private var activity: Activity? = null
   private val overlayManager: OverlayManager by lazy { OverlayManager(context) }
-  
-  private var eventSink: EventChannel.EventSink? = null
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     context = flutterPluginBinding.applicationContext
     channel = MethodChannel(flutterPluginBinding.binaryMessenger, "floating_window_android")
     channel.setMethodCallHandler(this)
-    
+
     eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, Constants.OVERLAY_EVENT_CHANNEL)
     eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
       override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-        eventSink = events
-        overlayManager.setEventSink(eventSink)
+        // 将 EventSink 连接到 OverlayManager 的静态桥梁
+        OverlayManager.setEventSink(events)
       }
 
       override fun onCancel(arguments: Any?) {
-        eventSink = null
-        overlayManager.setEventSink(null)
+        // 断开连接
+        OverlayManager.setEventSink(null)
       }
     })
   }
 
   override fun onMethodCall(call: MethodCall, result: Result) {
     when (call.method) {
+      Constants.SHARE_DATA -> {
+        try {
+          // 不再通过实例，而是通过静态方法直接发送，确保数据能被缓存
+          OverlayManager.shareDataToOverlay(call.argument<Any>(Constants.DATA))
+          result.success(true)
+        } catch (e: Exception) {
+          result.error("SHARE_DATA_ERROR", e.message, null)
+        }
+      }
+      
+      // ... 其他的 onMethodCall case 保持不变 ...
       Constants.GET_PLATFORM_VERSION -> {
         result.success("Android ${android.os.Build.VERSION.RELEASE}")
       }
@@ -81,7 +86,6 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
           val positionGravity = call.argument<String>(Constants.POSITION_GRAVITY) ?: Constants.NONE
           val startPosition = call.argument<Map<String, Any>>(Constants.START_POSITION)
           
-          // Set floating window service parameters
           OverlayService.overlayHeight = height
           OverlayService.overlayWidth = width
           OverlayService.overlayAlignment = alignment
@@ -90,7 +94,6 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
           OverlayService.positionGravity = positionGravity
           OverlayService.startPosition = startPosition
           
-          // Start floating window service
           val serviceIntent = Intent(context, OverlayService::class.java).apply {
             putExtra(Constants.OVERLAY_TITLE, overlayTitle)
             putExtra(Constants.OVERLAY_CONTENT, overlayContent)
@@ -104,7 +107,6 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
             context.startService(serviceIntent)
           }
           
-          // Show floating window
           overlayManager.showOverlay(
             height = height,
             width = width,
@@ -125,7 +127,6 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
         try {
           overlayManager.closeOverlay()
           
-          // Stop service
           if (OverlayService.isRunning()) {
             context.stopService(Intent(context, OverlayService::class.java))
           }
@@ -177,21 +178,10 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
         }
       }
       
-      Constants.SHARE_DATA -> {
-        try {
-          val data = call.argument<Any>(Constants.DATA)
-          val success = overlayManager.shareData(data)
-          result.success(success)
-        } catch (e: Exception) {
-          result.error("SHARE_DATA_ERROR", e.message, null)
-        }
-      }
-      
       Constants.OPEN_MAIN_APP -> {
         try {
           val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
           if (intent != null) {
-            // Add parameters to Intent
             val params = call.arguments<Map<String, Any>>()
             if (params != null) {
               for ((key, value) in params) {
@@ -213,7 +203,6 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
             context.startActivity(intent)
             result.success(true)
           } else {
-            // Should not happen normally
             result.error("NO_LAUNCH_INTENT", "Could not get launch intent for package", null)
           }
         } catch (e: Exception) {
@@ -227,14 +216,12 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
       
       Constants.IS_MAIN_APP_RUNNING -> {
         try {
-          // Check if main app is running in foreground
           val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
           val appProcesses = activityManager.runningAppProcesses ?: emptyList()
           
           val packageName = context.packageName
           var mainAppRunning = false
           
-          // Iterate through process list to check foreground app
           for (process in appProcesses) {
             if (process.processName == packageName && 
                 process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
@@ -296,11 +283,11 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
     activity = null
   }
 
-  override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+  override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) { // <-- 错误已在此处修正
     activity = binding.activity
   }
 
   override fun onDetachedFromActivity() {
     activity = null
   }
-} 
+}
