@@ -122,6 +122,10 @@ class CallKitService {
       'nameCaller': 'Direct Test Caller',
       'handle': '+1 (555) 789-1234',
       'avatar': 'https://i.pravatar.cc/150?u=mockuser',
+            // --- 新增的验证信息 ---
+      'country': 'USA',
+      'area': 'Los Angeles',
+      'carrier': 'AT&T Mobility',
     };
     await showOverlay(complexData);
   }

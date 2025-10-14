@@ -1,29 +1,26 @@
 // 文件: simple_overlay.dart
 
+import 'package:flutter_riverpod/legacy.dart';
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:floating_window_android/floating_window_android.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
-// 1. StateNotifier，用于管理状态
+// StateNotifier 和 Provider 的定义保持不变
 class CallDataNotifier extends StateNotifier<Map<String, dynamic>?> {
   CallDataNotifier() : super(null);
-
   void updateData(Map<String, dynamic> newData) {
     state = newData;
-    // Print #1: 确认状态管理器本身的状态已被更新
-    print("[CallDataNotifier] State updated to: $state");
   }
 }
 
-// 2. StateNotifierProvider，用于向UI提供状态管理器
 final callDataProvider = StateNotifierProvider.autoDispose<CallDataNotifier, Map<String, dynamic>?>((ref) {
   return CallDataNotifier();
 });
 
-// 3. ConsumerStatefulWidget，因为我们需要 initState 来设置监听
+
 class SimpleOverlay extends ConsumerStatefulWidget {
   const SimpleOverlay({super.key});
 
@@ -37,35 +34,22 @@ class _SimpleOverlayState extends ConsumerState<SimpleOverlay> {
   @override
   void initState() {
     super.initState();
-    // Print #2: 确认监听器在 widget 初始化时被设置
-    print("[SimpleOverlay] initState: Listening to overlayListener...");
-
-    // 严格保留您要求的 listen 模式
     _overlaySubscription = FloatingWindowAndroid.overlayListener.listen((data) {
       if (data is Map && mounted) {
-        // Print #3: 确认原始数据已通过 Stream 到达 Dart 层
-        print("[SimpleOverlay] Received data via listener: $data");
-        // 调用 Notifier 的方法来更新状态
         ref.read(callDataProvider.notifier).updateData(Map<String, dynamic>.from(data));
-      } else {
-        print("[SimpleOverlay] Received non-map data via listener: $data");
       }
     });
   }
 
   @override
   void dispose() {
-    print("[SimpleOverlay] dispose: Canceling subscription.");
     _overlaySubscription?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // 使用 ref.watch 来监听状态变化
     final callData = ref.watch(callDataProvider);
-    // Print #4: 确认 build 方法被触发，并显示当前用于构建UI的数据
-    print("[SimpleOverlay Build] Rebuilding with callData: $callData");
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -74,16 +58,15 @@ class _SimpleOverlayState extends ConsumerState<SimpleOverlay> {
         body: Center(
           child: Card(
             margin: const EdgeInsets.all(8),
-            color: Colors.black.withOpacity(0.8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 8,
+            color: Colors.black.withOpacity(0.85), // slightly more opaque
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), // more rounded
+            elevation: 12,
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              // 根据 Provider 的状态来构建 UI
+              padding: const EdgeInsets.all(8.0),
               child: callData == null
                   ? const SizedBox(
-                      width: 100,
-                      height: 100,
+                      width: 120, // larger indicator area
+                      height: 120,
                       child: Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)),
                     )
                   : buildCallContent(callData),
@@ -94,45 +77,73 @@ class _SimpleOverlayState extends ConsumerState<SimpleOverlay> {
     );
   }
 
-  // 渲染网络图片的健壮版本
+  // [核心修改] 修改 buildCallContent 来展示所有新信息
   Widget buildCallContent(Map<String, dynamic> callData) {
+    // --- 提取所有数据字段 ---
     final String callerName = callData['nameCaller'] ?? 'Unknown Caller';
     final String avatarUrl = callData['avatar'] ?? '';
+    final String handle = callData['handle'] ?? 'No Number';
+    final String country = callData['country'] ?? 'N/A';
+    final String area = callData['area'] ?? 'N/A';
+    final String carrier = callData['carrier'] ?? 'N/A';
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text("Caller: $callerName", style: const TextStyle(color: Colors.white, fontSize: 18)),
-        const SizedBox(height: 10),
+        // 1. 来电人姓名 (大号字体)
+        Text(
+          callerName,
+          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        // 2. 头像
         CircleAvatar(
-          radius: 30,
+          radius: 35, // larger avatar
           backgroundColor: Colors.grey.shade800,
           child: avatarUrl.isEmpty
-              ? const Icon(Icons.person, size: 30, color: Colors.white)
+              ? const Icon(Icons.person, size: 35, color: Colors.white)
               : ClipOval(
                   child: Image.network(
                     avatarUrl,
-                    width: 60,
-                    height: 60,
+                    width: 70,
+                    height: 70,
                     fit: BoxFit.cover,
                     loadingBuilder: (context, child, loadingProgress) {
                       if (loadingProgress == null) return child;
                       return const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white));
                     },
                     errorBuilder: (context, error, stackTrace) {
-                      // Print #5: 确认图片加载是否出错
-                      print("[SimpleOverlay] Image loading error: $error");
-                      return const Icon(Icons.person_off, size: 30, color: Colors.white);
+                      return const Icon(Icons.person_off, size: 35, color: Colors.white);
                     },
                   ),
                 ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
+        // 3. 手机号码 (中号字体)
+        Text(
+          handle,
+          style: TextStyle(color: Colors.grey[300], fontSize: 16),
+        ),
+        const SizedBox(height: 8),
+        // 4. 地区和国家 (小号字体)
+        Text(
+          "$area, $country",
+          style: TextStyle(color: Colors.grey[400], fontSize: 14),
+        ),
+        const SizedBox(height: 4),
+        // 5. 运营商 (小号字体)
+        Text(
+          "Carrier: $carrier",
+          style: TextStyle(color: Colors.grey[400], fontSize: 14),
+        ),
+        const SizedBox(height: 20),
+        // 6. 按钮
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            ElevatedButton(onPressed: _onDecline, style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Decline')),
-            ElevatedButton(onPressed: _onAccept, style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text('Accept')),
+            ElevatedButton(onPressed: _onDecline, style: ElevatedButton.styleFrom(backgroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)), child: const Text('Decline')),
+            ElevatedButton(onPressed: _onAccept, style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)), child: const Text('Accept')),
           ],
         )
       ],
@@ -144,13 +155,11 @@ class _SimpleOverlayState extends ConsumerState<SimpleOverlay> {
   }
 
   void _onAccept() {
-    print("[SimpleOverlay] Call Accepted");
     FloatingWindowAndroid.shareData({'action': 'accepted'});
     _closeFromOverlay();
   }
 
   void _onDecline() {
-    print("[SimpleOverlay] Call Declined");
     final callData = ref.read(callDataProvider);
     final String? callId = callData?['id'];
     if (callId != null) {
