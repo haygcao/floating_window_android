@@ -1,3 +1,6 @@
+// 文件: com/maojiu/floating_window_android/manager/OverlayManager.kt
+// 版本: 最小化修复版 (只解决 showOverlay 意外销毁引擎的问题)
+
 package com.maojiu.floating_window_android.manager
 
 import android.annotation.SuppressLint
@@ -8,6 +11,7 @@ import android.graphics.Point
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -45,52 +49,40 @@ class OverlayManager(
     private var currentY = 0
 
     companion object {
+        private const val TAG = "OverlayManager"
         private const val PRELOADED_ENGINE_KEY = "preloaded_overlay_engine"
         private var isEnginePreloaded = false
 
-        // --- Start of the new, robust, static communication bridge ---
         @JvmStatic
         private var staticEventSink: EventSink? = null
         
-        // [核心修复] 将缓存从 Any? 改为一个可变的 Map，用于累积数据。
         @JvmStatic
         private var cachedData: MutableMap<String, Any?> = mutableMapOf()
 
         @JvmStatic
         fun setEventSink(sink: EventSink?) {
             staticEventSink = sink
-            // 当 Sink 准备好时，如果缓存中有数据，则发送整个累积的 Map。
             if (sink != null && cachedData.isNotEmpty()) {
-                // 发送的是一个 Map 的副本，以防万一
                 sink.success(HashMap(cachedData))
-                // 发送后清空缓存
                 cachedData.clear()
             }
         }
 
         @JvmStatic
         fun shareDataToOverlay(data: Any?) {
-            // [核心修复] 不再是覆盖，而是合并。
             if (data is Map<*, *>) {
-                // 确保传入的是 Map 类型的数据
                 @Suppress("UNCHECKED_CAST")
                 val newMap = data as? Map<String, Any?>
                 if (newMap != null) {
                     if (staticEventSink == null) {
-                        // Sink 未准备好，将新数据合并到缓存 Map 中。
                         cachedData.putAll(newMap)
                     } else {
-                        // Sink 已准备好，直接发送新数据。
-                        // 注意：这里我们假设 UI 逻辑 (StateNotifier) 也是合并逻辑。
-                        // 如果 UI 逻辑已经是合并，那么这里可以直接发送部分更新。
                         staticEventSink?.success(newMap)
                     }
                 }
             }
         }
-        // --- End of the static communication bridge ---
-
-        // ... preloadFlutterEngine, cleanupPreloadedEngine, isFlutterEnginePreloaded 保持不变 ...
+        
         fun preloadFlutterEngine(context: Context, dartEntryPoint: String = "overlayMain") {
             if (isEnginePreloaded) { return }
             try {
@@ -103,7 +95,7 @@ class OverlayManager(
                 FlutterEngineCache.getInstance().put(PRELOADED_ENGINE_KEY, engine)
                 isEnginePreloaded = true
             } catch (e: Exception) {
-                android.util.Log.e("OverlayManager", "Failed to preload Flutter engine", e)
+                Log.e(TAG, "Failed to preload Flutter engine", e)
             }
         }
 
@@ -113,25 +105,13 @@ class OverlayManager(
                 FlutterEngineCache.getInstance().remove(PRELOADED_ENGINE_KEY)
                 isEnginePreloaded = false
             } catch (e: Exception) {
-                android.util.Log.e("OverlayManager", "Failed to cleanup preloaded engine", e)
+                Log.e(TAG, "Failed to cleanup preloaded engine", e)
             }
         }
 
         fun isFlutterEnginePreloaded(): Boolean {
             return isEnginePreloaded && FlutterEngineCache.getInstance().get(PRELOADED_ENGINE_KEY) != null
         }
-    }
-
-    // ... 其他所有 OverlayManager 的实例方法 (isPermissionGranted, showOverlay, etc.) 都保持不变 ...
-    fun isPermissionGranted(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(context) else true
-    }
-
-    fun requestPermission(): Intent {
-        return Intent(
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:${context.packageName}")
-        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
     fun showOverlay(
@@ -144,9 +124,18 @@ class OverlayManager(
         startPosition: Map<String, Any>? = null,
         dartEntryPoint: String = "overlayMain"
     ) {
-        if (overlayView != null) {
-            closeOverlay()
+        // [*** 核心修复 ***]
+        // 原始代码是: if (overlayView != null) { closeOverlay() }
+        // closeOverlay() 会销毁引擎，导致通信中断。
+        // 正确的做法是，如果已有一个引擎在运行，就不要再创建新的，直接复用即可。
+        if (flutterEngine != null && overlayView != null && overlayView?.isAttachedToWindow == true) {
+            Log.d(TAG, "Overlay is already showing. Aborting new show request to preserve engine and communication channel.")
+            return // 直接返回，不执行任何操作，保护现有窗口和引擎。
         }
+        // [*** 修复结束 ***]
+        
+        // 如果代码执行到这里，说明是第一次创建窗口，或者窗口已被正确关闭。
+        // 后续的创建逻辑保持和插件原始代码一致。
         this.enableDrag = enableDrag
         this.positionGravity = positionGravity
         flutterEngine = if (isFlutterEnginePreloaded()) {
@@ -192,6 +181,21 @@ class OverlayManager(
                 e.printStackTrace()
             }
         }
+    }
+    
+    //
+    // 以下所有方法均保持原始版本，未做任何修改
+    //
+    
+    fun isPermissionGranted(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(context) else true
+    }
+
+    fun requestPermission(): Intent {
+        return Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:${context.packageName}")
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
     private fun setupWindowParams(height: Int, width: Int, alignment: String, flag: String): WindowManager.LayoutParams {
@@ -284,7 +288,6 @@ class OverlayManager(
     }
 
     fun closeOverlay() {
-        // 清理缓存，以防万一
         cachedData.clear()
         
         flutterEngine?.dartExecutor?.binaryMessenger?.let {

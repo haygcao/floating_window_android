@@ -1,25 +1,11 @@
-// 文件: simple_overlay.dart
-
-import 'package:flutter_riverpod/legacy.dart';
+// 文件: lib/simple_overlay.dart
+// 最终版本: 无 initialData, 完全分离状态
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:floating_window_android/floating_window_android.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
-
-// StateNotifier 和 Provider 的定义保持不变
-class CallDataNotifier extends StateNotifier<Map<String, dynamic>?> {
-  CallDataNotifier() : super(null);
-  void updateData(Map<String, dynamic> newData) {
-    state = newData;
-  }
-}
-
-final callDataProvider = StateNotifierProvider.autoDispose<CallDataNotifier, Map<String, dynamic>?>((ref) {
-  return CallDataNotifier();
-});
-
 
 class SimpleOverlay extends ConsumerStatefulWidget {
   const SimpleOverlay({super.key});
@@ -29,28 +15,118 @@ class SimpleOverlay extends ConsumerStatefulWidget {
 }
 
 class _SimpleOverlayState extends ConsumerState<SimpleOverlay> {
-  StreamSubscription? _overlaySubscription;
+  StreamSubscription? _subscription;
+  
+  // 1. [核心] 状态变量现在只有两种：来电主数据 和 SIM卡补充数据
+  Map<String, dynamic>? _callerIdUpdate; // 第一个到达的数据包就是它
+  Map<String, dynamic>? _simUpdate;
 
   @override
   void initState() {
     super.initState();
-    _overlaySubscription = FloatingWindowAndroid.overlayListener.listen((data) {
-      if (data is Map && mounted) {
-        ref.read(callDataProvider.notifier).updateData(Map<String, dynamic>.from(data));
+    print("[SimpleOverlay] initState: Starting to listen for overlay data...");
+    
+    _subscription = FloatingWindowAndroid.overlayListener.listen((data) {
+      if (!mounted) return;
+      if (data is Map) {
+        print("[SimpleOverlay] Received data from stream: $data");
+        
+        // 2. [核心] 逻辑简化：如果数据包含 'id' 或 'avatar'，就认为是主数据。
+        //    如果包含 'simSlot'，就认为是SIM卡数据。
+        setState(() {
+          if (data.containsKey('id') || data.containsKey('avatar')) {
+             _callerIdUpdate = Map<String, dynamic>.from(data);
+          }
+          else if (data.containsKey('simSlot')) {
+            _simUpdate = Map<String, dynamic>.from(data);
+          }
+        });
       }
     });
   }
 
   @override
   void dispose() {
-    _overlaySubscription?.cancel();
+    print("[SimpleOverlay] dispose: Canceling subscription.");
+    _subscription?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final callData = ref.watch(callDataProvider);
+    // 3. [核心] UI构建的逻辑现在非常简单：
+    //    如果连最主要的来电数据都还没到，就显示加载。
+    if (_callerIdUpdate == null) {
+      print("[SimpleOverlay Build] _callerIdUpdate is null, showing loading indicator.");
+      return _buildContainer(
+        child: const SizedBox(
+          width: 320,
+          height: 320,
+          child: Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)),
+        ),
+      );
+    }
 
+    // 4. [核心] UI的每个部分都从对应的、唯一的数据源获取信息。
+    final String callerName = _callerIdUpdate?['nameCaller'] ?? 'Unknown';
+    final String avatarUrl = _callerIdUpdate?['avatar'] ?? '';
+    final String handle = _callerIdUpdate?['handle'] ?? 'No Number';
+    final String country = _callerIdUpdate?['country'] ?? 'N/A';
+    final String area = _callerIdUpdate?['area'] ?? 'N/A';
+    final String carrier = _callerIdUpdate?['carrier'] ?? 'N/A';
+    final String? simSlot = _simUpdate?['simSlot'];
+    
+    print("[SimpleOverlay Build] Rebuilding. Name: $callerName, SIM: $simSlot");
+
+    return _buildContainer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(callerName, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          CircleAvatar(
+            radius: 35,
+            backgroundColor: Colors.grey.shade800,
+
+            child: avatarUrl.isEmpty
+                ? const Icon(Icons.person, size: 35, color: Colors.white)
+                : ClipOval(
+                    child: Image.network(
+                      avatarUrl,
+                      width: 70, height: 70, fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) => loadingProgress == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.person_off, size: 35, color: Colors.white),
+                    ),
+                  ),
+                  
+          ),
+          const SizedBox(height: 12),
+          Text(handle, style: TextStyle(color: Colors.grey[300], fontSize: 16)),
+          const SizedBox(height: 8),
+          Text("$area, $country", style: TextStyle(color: Colors.grey[400], fontSize: 14)),
+          const SizedBox(height: 4),
+          Text("Carrier: $carrier", style: TextStyle(color: Colors.grey[400], fontSize: 14)),
+          
+          // SIM Slot 部分只有在 _simUpdate 到达后才会构建
+          if (simSlot != null) ...[
+            const SizedBox(height: 4),
+            Text("SIM Slot: $simSlot", style: TextStyle(color: Colors.amber[200], fontSize: 14)),
+          ],
+          
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ElevatedButton(onPressed: _onDecline, style: ElevatedButton.styleFrom(backgroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)), child: const Text('Decline')),
+              ElevatedButton(onPressed: _onAccept, style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)), child: const Text('Accept')),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContainer({required Widget child}) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
@@ -58,18 +134,12 @@ class _SimpleOverlayState extends ConsumerState<SimpleOverlay> {
         body: Center(
           child: Card(
             margin: const EdgeInsets.all(8),
-            color: Colors.black.withOpacity(0.85), // slightly more opaque
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), // more rounded
+            color: Colors.black.withOpacity(0.85),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             elevation: 12,
             child: Padding(
               padding: const EdgeInsets.all(8.0),
-              child: callData == null
-                  ? const SizedBox(
-                      width: 120, // larger indicator area
-                      height: 120,
-                      child: Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)),
-                    )
-                  : buildCallContent(callData),
+              child: child,
             ),
           ),
         ),
@@ -77,91 +147,20 @@ class _SimpleOverlayState extends ConsumerState<SimpleOverlay> {
     );
   }
 
-  // [核心修改] 修改 buildCallContent 来展示所有新信息
-  Widget buildCallContent(Map<String, dynamic> callData) {
-    // --- 提取所有数据字段 ---
-    final String callerName = callData['nameCaller'] ?? 'Unknown Caller';
-    final String avatarUrl = callData['avatar'] ?? '';
-    final String handle = callData['handle'] ?? 'No Number';
-    final String country = callData['country'] ?? 'N/A';
-    final String area = callData['area'] ?? 'N/A';
-    final String carrier = callData['carrier'] ?? 'N/A';
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 1. 来电人姓名 (大号字体)
-        Text(
-          callerName,
-          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 12),
-        // 2. 头像
-        CircleAvatar(
-          radius: 35, // larger avatar
-          backgroundColor: Colors.grey.shade800,
-          child: avatarUrl.isEmpty
-              ? const Icon(Icons.person, size: 35, color: Colors.white)
-              : ClipOval(
-                  child: Image.network(
-                    avatarUrl,
-                    width: 70,
-                    height: 70,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white));
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(Icons.person_off, size: 35, color: Colors.white);
-                    },
-                  ),
-                ),
-        ),
-        const SizedBox(height: 12),
-        // 3. 手机号码 (中号字体)
-        Text(
-          handle,
-          style: TextStyle(color: Colors.grey[300], fontSize: 16),
-        ),
-        const SizedBox(height: 8),
-        // 4. 地区和国家 (小号字体)
-        Text(
-          "$area, $country",
-          style: TextStyle(color: Colors.grey[400], fontSize: 14),
-        ),
-        const SizedBox(height: 4),
-        // 5. 运营商 (小号字体)
-        Text(
-          "Carrier: $carrier",
-          style: TextStyle(color: Colors.grey[400], fontSize: 14),
-        ),
-        const SizedBox(height: 20),
-        // 6. 按钮
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            ElevatedButton(onPressed: _onDecline, style: ElevatedButton.styleFrom(backgroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)), child: const Text('Decline')),
-            ElevatedButton(onPressed: _onAccept, style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)), child: const Text('Accept')),
-          ],
-        )
-      ],
-    );
-  }
-
+  // 事件处理方法
   Future<void> _closeFromOverlay() async {
     await FloatingWindowAndroid.closeOverlayFromOverlay();
   }
 
   void _onAccept() {
+    print("[SimpleOverlay] Call Accepted");
     FloatingWindowAndroid.shareData({'action': 'accepted'});
     _closeFromOverlay();
   }
 
   void _onDecline() {
-    final callData = ref.read(callDataProvider);
-    final String? callId = callData?['id'];
+    print("[SimpleOverlay] Call Declined");
+    final String? callId = _callerIdUpdate?['id'];
     if (callId != null) {
       FlutterCallkitIncoming.endCall(callId);
     }

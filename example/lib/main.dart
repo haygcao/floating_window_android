@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'; // 1. 引入 Riverpod
 // 悬浮窗的入口点
 @pragma("vm:entry-point")
 void overlayMain() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(
     // 2. 将悬浮窗包裹在 ProviderScope 中
     ProviderScope(

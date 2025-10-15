@@ -12,13 +12,14 @@ class CallKitService {
     print("[CallKitService] Initializing CallKit event listener...");
     FlutterCallkitIncoming.onEvent.listen((event) async {
       if (event == null) return;
-      // --- 核心修复：添加详细日志 ---
       print("[CallKitService] >>> Received CallKit Event: ${event.event}");
       print("[CallKitService] >>> Event Body: ${event.body}");
       
       switch (event.event) {
         case Event.actionCallIncoming:
-          await showOverlay(event.body);
+          // 完美的解耦架构：先展示空窗口，再发送数据
+          await showOverlay();
+          await shareData(event.body);
           break;
         case Event.actionCallAccept:
         case Event.actionCallDecline:
@@ -35,20 +36,16 @@ class CallKitService {
 
   static Future<bool> requestAllPermissions() async {
     print("[CallKitService] Requesting permissions...");
-    // Requesting multiple permissions at once
     Map<Permission, PermissionStatus> statuses = await [
       Permission.phone,
       Permission.notification,
     ].request();
 
-    // Separately handle the system alert window permission
     bool overlayPermission = await FloatingWindowAndroid.isPermissionGranted();
     if (!overlayPermission) {
       print("[CallKitService] Overlay permission not granted, requesting...");
-      // This will open the system settings page for the user to grant it.
       await FloatingWindowAndroid.requestPermission();
-      // We can't know the result immediately, so we just assume the user will grant it.
-      overlayPermission = true; // Assume true for logic flow
+      overlayPermission = true; 
     }
     
     bool allGranted = overlayPermission;
@@ -68,30 +65,32 @@ class CallKitService {
     return allGranted;
   }
   
-  static Future<void> showOverlay(Map<String, dynamic> data) async {
-    print("[CallKitService] Preparing to show overlay...");
+  // showOverlay 只负责展示UI容器
+  static Future<void> showOverlay() async {
+    print("[CallKitService] Showing a raw overlay window...");
     try {
-     // await FloatingWindowAndroid.closeOverlay();
-      print("[CallKitService] Any previous overlay closed.");
-      
-      // --- 核心修复：恢复您指定的参数 ---
+      await FloatingWindowAndroid.closeOverlay();
       await FloatingWindowAndroid.showOverlay(
-        height: 900,
+        height: 900, 
         width: 980,
         alignment: OverlayAlignment.center,
-        flag: OverlayFlag.defaultFlag, // Using default to allow interaction
+        flag: OverlayFlag.defaultFlag,
         enableDrag: true,
       );
       print("[CallKitService] showOverlay command sent to native.");
-
-      // Add a small delay to ensure the native side is fully ready
-    //  await Future.delayed(const Duration(milliseconds: 200));
-
-      print("[CallKitService] Preparing to share data: $data");
-      await FloatingWindowAndroid.shareData(data);
-      print("[CallKitService] Data sharing command sent to native.");
     } catch (e) {
-      print("[CallKitService] FATAL ERROR during showOverlay/shareData: $e");
+      print("[CallKitService] FATAL ERROR during showOverlay: $e");
+    }
+  }
+
+  // shareData 是唯一的数据发送通道
+  static Future<void> shareData(Map<String, dynamic> data) async {
+    print("[CallKitService] Sharing data to overlay: $data");
+    try {
+      await FloatingWindowAndroid.shareData(data);
+      print("[CallKitService] shareData command sent to native.");
+    } catch (e) {
+      print("[CallKitService] FATAL ERROR during shareData: $e");
     }
   }
 
@@ -115,18 +114,39 @@ class CallKitService {
     await FlutterCallkitIncoming.showCallkitIncoming(params);
   }
   
+  // 最终的、包含多部分数据发送的测试方法
   static Future<void> testWithComplexMockData() async {
-    print("[CallKitService] Testing overlay directly with mock data...");
-    final complexData = {
-      'id': 'mock_id_${DateTime.now().millisecondsSinceEpoch}',
-      'nameCaller': 'Direct Test Caller',
-      'handle': '+1 (555) 789-1234',
-      'avatar': 'https://i.pravatar.cc/150?u=mockuser',
-            // --- 新增的验证信息 ---
+    print("[CallKitService] Testing multi-part data sharing with decoupled architecture...");
+
+    // 步骤 1: 只展示一个空的悬浮窗（UI上会显示加载指示器）
+    await showOverlay();
+
+    // 步骤 2: 模拟延迟后，发送第一部分数据（基础信息）
+
+   
+   
+   
+   
+   
+   
+
+    // 步骤 3: 模拟网络请求，延迟1秒后，发送第二部分数据（来电人详情）
+    
+    final callerIdUpdate = {
+      "handle": '123-456-7890',
+      'nameCaller': 'Jennifer Aniston',
+      'avatar': 'https://i.pravatar.cc/150?u=jennifer',
       'country': 'USA',
       'area': 'Los Angeles',
       'carrier': 'AT&T Mobility',
     };
-    await showOverlay(complexData);
+    await shareData(callerIdUpdate);
+
+    // 步骤 4: 模拟获取SIM卡信息，又过了1秒，发送第三部分数据
+  
+    final simUpdate = {
+      'simSlot': 'SIM 2',
+    };
+    await shareData(simUpdate);
   }
 }
