@@ -1,6 +1,3 @@
-// 文件: simple_overlay.dart
-// 最终解决方案: 回归 setState, 监听 EventChannel
-
 import 'dart:async';
 
 import 'package:floating_window_android/floating_window_android.dart';

@@ -1,5 +1,5 @@
-// 文件: call_kit_service.dart
-// 最终版: 修复了 "Undefined name 'body'" 致命错误
+// File: call_kit_service.dart
+// Final version: Fixed the fatal error "Undefined name 'body'"
 
 import 'dart:async';
 import 'package:flutter_callkit_incoming/entities/android_params.dart';
@@ -19,40 +19,40 @@ class CallKitService {
 
       switch (event.event) {
         case Event.actionCallIncoming:
-          // ============ 致命错误修复点 ============
-          // 之前我忘了声明 body 变量，现在已经正确声明。
-          // 从 event.body 创建一个 Map，变量名为 body。
+          // ============ Fatal Error Fix Point ============
+          // Previously, I forgot to declare the body variable, now it is correctly declared.
+          // Create a Map from event.body, with the variable name body.
           final Map<String, dynamic> body = Map<String, dynamic>.from(event.body);
 
-          // 从 extra 中提取附加数据
+          // Extract additional data from extra
           final Map<String, dynamic> extraData = body.containsKey('extra')
               ? Map<String, dynamic>.from(body['extra'])
               : {};
 
-          // 构建一个 UI 需要的、格式正确的数据包
-          // 现在所有的 'body' 引用都是合法的，因为上面已经声明了它。
+          // Construct a properly formatted data package for the UI
+          // All 'body' references are now valid because it has been declared above.
           final Map<String, dynamic> callerDataForUI = {
             'configType': 'callerIdUpdate',
             'id': body['id'],
             'nameCaller': body['nameCaller'],
-             'handle': body['number'] ?? 'No Number', // <-- 从 body['number'] 获取号码
+             'handle': body['number'] ?? 'No Number', // <-- Get number from body['number']
             'avatar': body['avatar'],
               'country': extraData.containsKey('country') ? extraData['country'] : 'No Country',
               'area': extraData.containsKey('area') ? extraData['area'] : 'No Area',  
               'carrier': extraData.containsKey('carrier') ? extraData['carrier'] : 'AT&T Mobility',
           };
 
-          // 模拟获取SIM卡信息的第二个数据包
+          // Simulate a second data package for SIM card information
           final simData = {
             'configType': 'simUpdate',
             'simSlot': 'SIM 2 (from Event)',
           };
 
-          // 依次调用
+          // Call sequentially
           await showOverlayWindow();
           await shareDataToOverlay(callerDataForUI);
 
-          // 模拟延迟后发送第二个数据包
+          // Simulate a delay before sending the second data package
           await Future.delayed(const Duration(milliseconds: 500));
           await shareDataToOverlay(simData);
           break;

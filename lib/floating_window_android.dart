@@ -221,36 +221,42 @@ class FloatingWindowAndroid {
     return FloatingWindowAndroidPlatform.instance.isMainAppRunning();
   }
 
-  // --- ADDED: 新增的、推荐使用的引擎管理API ---
+  // --- ADDED: New, recommended engine management API ---
 
-  /// 确保悬浮窗引擎已准备就绪。
+  /// Ensures the floating window engine is ready.
   ///
-  /// 在新的架构中，引擎会在App启动时自动初始化，所以通常你不需要调用此方法。
-  /// 唯一的例外是：当你之前调用了 [dispose] 来销毁引擎后，又希望再次使用悬浮窗功能时
-  /// (例如，用户从“仅通知”模式切换回“悬浮窗”模式)，你需要手动调用此方法来重新创建引擎。
+  /// In the new architecture, the engine is automatically initialized when the app starts,
+  /// so you typically don't need to call this method.
+  /// The only exception is if you previously called [dispose] to destroy the engine
+  /// and now wish to use the floating window functionality again
+  /// (e.g., the user switches from "notification only" mode back to "floating window" mode).
+  /// In such cases, you need to manually call this method to recreate the engine.
   static Future<bool> initialize() {
     return FloatingWindowAndroidPlatform.instance.initialize();
   }
 
-  /// 销毁悬浮窗引擎以释放内存。
+  /// Destroys the floating window engine to free up memory.
   ///
-  /// 当你确定在接下来的一段时间内不再需要悬浮窗功能时（例如，用户在设置中
-  /// 切换到了“仅通知”模式），调用此方法。这将完全释放引擎占用的几十兆内存。
+  /// Call this method when you are certain that you will not need the floating window
+  /// functionality for a while (e.g., the user switches to "notification only" mode
+  /// in settings). This will completely release the tens of megabytes of memory
+  /// occupied by the engine.
   ///
-  /// **重要提示:** 销毁引擎后，下一次调用 [showOverlay] 将会失败或无法“秒开”，
-  /// 除非你首先调用 [initialize] 来重新准备引擎。
+  /// **Important Note:** After destroying the engine, the next call to [showOverlay]
+  /// will fail or not achieve "instant-on" functionality, unless you first call
+  /// [initialize] to prepare the engine again.
   static Future<bool> dispose() {
     return FloatingWindowAndroidPlatform.instance.dispose();
   }
 
-  // --- ADDED: 对旧的、不推荐使用的API进行注解 ---
+  // --- ADDED: Annotations for old, deprecated APIs ---
 
-  /// **已废弃**: 此方法在新架构中已无实际作用，请不要使用。
+  /// **Deprecated**: This method has no practical effect in the new architecture and should not be used.
   ///
-  /// 引擎现在会在App启动时自动预加载。此方法仅为保持旧版本兼容性而保留，
-  /// 在未来的版本中可能会被移除。
+  /// The engine is now automatically preloaded when the app starts. This method is retained
+  /// only for backward compatibility and may be removed in future versions.
   ///
-  /// 如果你需要重新创建被 [dispose] 的引擎，请改用 [initialize] 方法。
+  /// If you need to recreate an engine that was [dispose]d, please use the [initialize] method instead.
   @Deprecated(
       'The engine is now managed automatically. Use initialize() if you need to recreate the engine after a dispose() call. This method will be removed in a future version.')
   static Future<bool> preloadFlutterEngine({
@@ -260,21 +266,21 @@ class FloatingWindowAndroid {
         .preloadFlutterEngine(dartEntryPoint);
   }
 
-  /// **已废弃**: 此方法的行为已改变，不推荐使用。
+  /// **Deprecated**: The behavior of this method has changed and it is not recommended for use.
   ///
-  /// 现在它仅检查自动缓存的引擎当前是否存在于内存中。如果你调用了 [dispose]，
-  /// 此方法将返回`false`。
-  /// 此方法仅为保持旧版本兼容性而保留，在未来的版本中可能会被移除。
+  /// It now only checks if the automatically cached engine currently exists in memory.
+  /// If you called [dispose], this method will return `false`.
+  /// This method is retained only for backward compatibility and may be removed in future versions.
   @Deprecated(
       'The engine is now managed automatically. Its behavior has changed. This method will be removed in a future version.')
   static Future<bool> isFlutterEnginePreloaded() {
     return FloatingWindowAndroidPlatform.instance.isFlutterEnginePreloaded();
   }
 
-  /// **已废弃**: 请改用新的 [dispose] 方法。
+  /// **Deprecated**: Please use the new [dispose] method instead.
   ///
-  /// 此方法现在内部会直接调用 [dispose] 来执行清理操作。
-  /// 它的存在仅为保持旧版本兼容性，在未来的版本中可能会被移除。
+  /// This method now internally calls [dispose] directly to perform cleanup operations.
+  /// Its existence is solely for backward compatibility and it may be removed in future versions.
   @Deprecated(
       'Use dispose() instead. This method will be removed in a future version.')
   static Future<bool> cleanupPreloadedEngine() {

@@ -35,20 +35,20 @@ class Constants {
   static const String y = "y";
   static const String data = "data";
 
-   // --- ADDED: 与原生代码同步，新增和保留引擎管理相关的常量 ---
+   // --- ADDED: Synchronized with native code, new and retained engine management constants ---
 
-  /// 新增: 用于手动初始化引擎的通道方法名。
+  /// New: Channel method name for manual engine initialization.
   static const String initializeEngine = "initializeEngine";
 
-  /// 新增: 用于手动销毁引擎的通道方法名。
+  /// New: Channel method name for manual engine disposal.
   static const String disposeEngine = "disposeEngine";
 
-  /// 保留: 兼容旧API的方法名。
+  /// Retained: Method name for compatibility with old API.
   static const String preloadFlutterEngine = "preloadFlutterEngine";
 
-  /// 保留: 兼容旧API的方法名。
+  /// Retained: Method name for compatibility with old API.
   static const String isFlutterEnginePreloaded = "isFlutterEnginePreloaded";
   
-  /// 保留: 兼容旧API的方法名。
+  /// Retained: Method name for compatibility with old API.
   static const String cleanupPreloadedEngine = "cleanupPreloadedEngine";
 }

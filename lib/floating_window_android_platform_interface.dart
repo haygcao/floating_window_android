@@ -23,7 +23,7 @@ abstract class FloatingWindowAndroidPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  // --- 以下所有已有的方法定义均无改动 ---
+  // --- All existing method definitions below remain unchanged ---
   Future<String?> getPlatformVersion() {
     throw UnimplementedError('platformVersion() has not been implemented.');
   }
@@ -104,31 +104,31 @@ abstract class FloatingWindowAndroidPlatform extends PlatformInterface {
     throw UnimplementedError('openMainApp() has not been implemented.');
   }
 
-  // --- ADDED: 新增和保留的引擎管理方法的抽象定义 ---
+  // --- ADDED: Abstract definitions for new and retained engine management methods ---
 
-  /// 确保引擎已初始化的抽象方法。
+  /// Abstract method to ensure the engine is initialized.
   Future<bool> initialize() {
     throw UnimplementedError('initialize() has not been implemented.');
   }
 
-  /// 销毁引擎的抽象方法。
+  /// Abstract method to dispose of the engine.
   Future<bool> dispose() {
     throw UnimplementedError('dispose() has not been implemented.');
   }
 
-  /// 兼容旧API的抽象方法。
+  /// Abstract method for compatibility with old API.
   Future<bool> preloadFlutterEngine(String dartEntryPoint) {
     throw UnimplementedError(
         'preloadFlutterEngine() has not been implemented.');
   }
 
-  /// 兼容旧API的抽象方法。
+  /// Abstract method for compatibility with old API.
   Future<bool> isFlutterEnginePreloaded() {
     throw UnimplementedError(
         'isFlutterEnginePreloaded() has not been implemented.');
   }
 
-  /// 兼容旧API的抽象方法。
+  /// Abstract method for compatibility with old API.
   Future<bool> cleanupPreloadedEngine() {
     throw UnimplementedError(
         'cleanupPreloadedEngine() has not been implemented.');

@@ -2,15 +2,15 @@ import 'package:floating_window_android/floating_window_android.dart';
 import 'package:floating_window_android_example/callkit_service.dart';
 import 'package:floating_window_android_example/simple_overlay.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // 1. 引入 Riverpod
-// 核心修复：这个是悬浮窗的入口点
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // 1. Import Riverpod
+// Core fix: This is the entry point for the floating window
 
-// 悬浮窗的入口点
+// Entry point for the floating window
 @pragma("vm:entry-point")
 void overlayMain() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    // 2. 将悬浮窗包裹在 ProviderScope 中
+    // 2. Wrap the floating window in ProviderScope
     ProviderScope(
       child: const MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -20,10 +20,10 @@ void overlayMain() {
   );
 }
 
-// 核心修复：这个是主 App 的入口点
+// Core fix: This is the entry point for the main App
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // 这会在后台准备好一个悬浮窗引擎，以便后续可以“秒开”
+  // This prepares a floating window engine in the background for "instant-on" functionality.
   await FloatingWindowAndroid.preloadFlutterEngine();
   CallKitService.initializeListeners();
   runApp(
@@ -31,7 +31,7 @@ Future<void> main() async {
   );
 }
 
-// 主 App 的 UI 页面
+// Main App UI page
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
