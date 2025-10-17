@@ -1,5 +1,4 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
-
 import 'floating_window_android_method_channel.dart';
 
 abstract class FloatingWindowAndroidPlatform extends PlatformInterface {
@@ -24,6 +23,7 @@ abstract class FloatingWindowAndroidPlatform extends PlatformInterface {
     _instance = instance;
   }
 
+  // --- 以下所有已有的方法定义均无改动 ---
   Future<String?> getPlatformVersion() {
     throw UnimplementedError('platformVersion() has not been implemented.');
   }
@@ -104,24 +104,33 @@ abstract class FloatingWindowAndroidPlatform extends PlatformInterface {
     throw UnimplementedError('openMainApp() has not been implemented.');
   }
 
-  /// Preload Flutter engine for faster overlay startup
+  // --- ADDED: 新增和保留的引擎管理方法的抽象定义 ---
+
+  /// 确保引擎已初始化的抽象方法。
+  Future<bool> initialize() {
+    throw UnimplementedError('initialize() has not been implemented.');
+  }
+
+  /// 销毁引擎的抽象方法。
+  Future<bool> dispose() {
+    throw UnimplementedError('dispose() has not been implemented.');
+  }
+
+  /// 兼容旧API的抽象方法。
   Future<bool> preloadFlutterEngine(String dartEntryPoint) {
     throw UnimplementedError(
-      'preloadFlutterEngine() has not been implemented.',
-    );
+        'preloadFlutterEngine() has not been implemented.');
   }
 
-  /// Check if Flutter engine is preloaded
+  /// 兼容旧API的抽象方法。
   Future<bool> isFlutterEnginePreloaded() {
     throw UnimplementedError(
-      'isFlutterEnginePreloaded() has not been implemented.',
-    );
+        'isFlutterEnginePreloaded() has not been implemented.');
   }
 
-  /// Clean up preloaded Flutter engine
+  /// 兼容旧API的抽象方法。
   Future<bool> cleanupPreloadedEngine() {
     throw UnimplementedError(
-      'cleanupPreloadedEngine() has not been implemented.',
-    );
+        'cleanupPreloadedEngine() has not been implemented.');
   }
 }

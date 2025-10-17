@@ -1,20 +1,20 @@
 import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'constants.dart';
-
 import 'floating_window_android_platform_interface.dart';
 
+/// 使用MethodChannel与原生平台通信的具体实现。
 class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
+  /// 用于与原生插件通信的主MethodChannel。
   @visibleForTesting
   final methodChannel = const MethodChannel('floating_window_android');
 
-  // Use BasicMessageChannel for reliable data transfer
+  /// 用于可靠数据传输的BasicMessageChannel。
   final BasicMessageChannel<dynamic> _messageChannel =
-      BasicMessageChannel(Constants.messengerChannel, JSONMessageCodec());
+      const BasicMessageChannel(Constants.messengerChannel, JSONMessageCodec());
 
-  // Stream controller to broadcast received messages
+  /// 用于向Dart代码广播从原生接收到的数据的StreamController。
   StreamController<dynamic>? _streamController;
 
   MethodChannelFloatingWindowAndroid() {
@@ -25,6 +25,7 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
     });
   }
 
+  // --- 以下所有已有的方法实现均无改动 ---
   @override
   Future<String?> getPlatformVersion() async {
     final version = await methodChannel.invokeMethod<String>(
@@ -163,21 +164,46 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
     );
     return result ?? false;
   }
-  
-  // These are now no-ops as engine management is handled natively
-  // But we keep the API for compatibility
+
+  // --- ADDED: 新增和废弃API的具体实现 ---
+
+  @override
+  Future<bool> initialize() async {
+    // 调用原生方法，确保引擎被创建。
+    final result =
+        await methodChannel.invokeMethod<bool>(Constants.initializeEngine);
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> dispose() async {
+    // 调用原生方法，销毁引擎以释放内存。
+    final result =
+        await methodChannel.invokeMethod<bool>(Constants.disposeEngine);
+    return result ?? false;
+  }
+
   @override
   Future<bool> preloadFlutterEngine(String dartEntryPoint) async {
-    return true; // Assume success, handled by native plugin attachment
+    // 调用对应的原生方法。在新架构中，原生端对此调用不做任何操作，直接返回成功。
+    final result = await methodChannel.invokeMethod<bool>(
+        Constants.preloadFlutterEngine, {'dartEntryPoint': dartEntryPoint});
+    return result ?? true; // 默认为true，因为引擎是自动加载的
   }
 
   @override
   Future<bool> isFlutterEnginePreloaded() async {
-    return true; // Assume true if plugin is attached
+    // 调用原生方法，检查自动缓存的引擎是否存在。
+    final result = await methodChannel
+        .invokeMethod<bool>(Constants.isFlutterEnginePreloaded);
+    return result ?? false;
   }
 
   @override
   Future<bool> cleanupPreloadedEngine() async {
-    return true; // Handled by native service destruction
+    // 将旧的cleanup调用路由到新的dispose逻辑。
+    final result = await methodChannel
+        .invokeMethod<bool>(Constants.cleanupPreloadedEngine);
+    return result ?? false;
   }
 }

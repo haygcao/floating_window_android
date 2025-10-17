@@ -1,6 +1,6 @@
+import 'package:floating_window_android/floating_window_android_method_channel.dart';
 import 'package:flutter/services.dart';
 import 'floating_window_android_platform_interface.dart';
-import 'floating_window_android_method_channel.dart';
 import 'constants.dart';
 
 /// Overlay flag types
@@ -146,11 +146,13 @@ class FloatingWindowAndroid {
     return FloatingWindowAndroidPlatform.instance.closeOverlay();
   }
 
-  /// Update floating window flag
+  static Future<bool> isShowing() {
+    return FloatingWindowAndroidPlatform.instance.isShowing();
+  }
+
   static Future<bool> updateFlag(OverlayFlag flag) {
-    return FloatingWindowAndroidPlatform.instance.updateFlag(
-      flag.toString().split('.').last,
-    );
+    return FloatingWindowAndroidPlatform.instance
+        .updateFlag(flag.toString().split('.').last);
   }
 
   /// Resize floating window
@@ -160,9 +162,8 @@ class FloatingWindowAndroid {
 
   /// Move floating window position
   static Future<bool> moveOverlay(OverlayPosition position) {
-    return FloatingWindowAndroidPlatform.instance.moveOverlay(
-      position.toJson(),
-    );
+    return FloatingWindowAndroidPlatform.instance
+        .moveOverlay(position.toJson());
   }
 
   /// Get current floating window position
@@ -170,9 +171,7 @@ class FloatingWindowAndroid {
     final Map<String, dynamic> position =
         await FloatingWindowAndroidPlatform.instance.getOverlayPosition();
     return OverlayPosition(
-      position['x'] as int? ?? 0,
-      position['y'] as int? ?? 0,
-    );
+        position['x'] as int? ?? 0, position['y'] as int? ?? 0);
   }
 
   /// Share data between floating window and main app
@@ -182,6 +181,8 @@ class FloatingWindowAndroid {
 
   /// Get floating window event listener
   static Stream<dynamic> get overlayListener {
+    // The underlying implementation was changed to BasicMessageChannel for reliability,
+    // but this public API remains the same for the user.
     if (FloatingWindowAndroidPlatform.instance
         is MethodChannelFloatingWindowAndroid) {
       return (FloatingWindowAndroidPlatform.instance
@@ -202,10 +203,9 @@ class FloatingWindowAndroid {
 
   /// Close floating window from within the floating window
   static Future<void> closeOverlayFromOverlay() async {
-    // Use specific channel to communicate with native service
-    const MethodChannel channel = MethodChannel(
-      Constants.overlayControlChannel,
-    );
+// Use specific channel to communicate with native service
+    const MethodChannel channel =
+        MethodChannel(Constants.overlayControlChannel);
     try {
       await channel.invokeMethod(Constants.closeOverlayFromOverlay);
     } on PlatformException catch (e) {
@@ -221,29 +221,62 @@ class FloatingWindowAndroid {
     return FloatingWindowAndroidPlatform.instance.isMainAppRunning();
   }
 
-  /// Checks if the overlay window is currently being shown.
-  static Future<bool> isShowing() {
-    return FloatingWindowAndroidPlatform.instance.isShowing();
+  // --- ADDED: 新增的、推荐使用的引擎管理API ---
+
+  /// 确保悬浮窗引擎已准备就绪。
+  ///
+  /// 在新的架构中，引擎会在App启动时自动初始化，所以通常你不需要调用此方法。
+  /// 唯一的例外是：当你之前调用了 [dispose] 来销毁引擎后，又希望再次使用悬浮窗功能时
+  /// (例如，用户从“仅通知”模式切换回“悬浮窗”模式)，你需要手动调用此方法来重新创建引擎。
+  static Future<bool> initialize() {
+    return FloatingWindowAndroidPlatform.instance.initialize();
   }
 
-  /// Preload Flutter engine for faster overlay startup
-  /// Call this method during app initialization to warm up the engine
-  /// [dartEntryPoint] - The Dart entry point for the overlay (default: "overlayMain")
+  /// 销毁悬浮窗引擎以释放内存。
+  ///
+  /// 当你确定在接下来的一段时间内不再需要悬浮窗功能时（例如，用户在设置中
+  /// 切换到了“仅通知”模式），调用此方法。这将完全释放引擎占用的几十兆内存。
+  ///
+  /// **重要提示:** 销毁引擎后，下一次调用 [showOverlay] 将会失败或无法“秒开”，
+  /// 除非你首先调用 [initialize] 来重新准备引擎。
+  static Future<bool> dispose() {
+    return FloatingWindowAndroidPlatform.instance.dispose();
+  }
+
+  // --- ADDED: 对旧的、不推荐使用的API进行注解 ---
+
+  /// **已废弃**: 此方法在新架构中已无实际作用，请不要使用。
+  ///
+  /// 引擎现在会在App启动时自动预加载。此方法仅为保持旧版本兼容性而保留，
+  /// 在未来的版本中可能会被移除。
+  ///
+  /// 如果你需要重新创建被 [dispose] 的引擎，请改用 [initialize] 方法。
+  @Deprecated(
+      'The engine is now managed automatically. Use initialize() if you need to recreate the engine after a dispose() call. This method will be removed in a future version.')
   static Future<bool> preloadFlutterEngine({
     String dartEntryPoint = "overlayMain",
   }) {
-    return FloatingWindowAndroidPlatform.instance.preloadFlutterEngine(
-      dartEntryPoint,
-    );
+    return FloatingWindowAndroidPlatform.instance
+        .preloadFlutterEngine(dartEntryPoint);
   }
 
-  /// Check if Flutter engine is preloaded and ready for fast overlay startup
+  /// **已废弃**: 此方法的行为已改变，不推荐使用。
+  ///
+  /// 现在它仅检查自动缓存的引擎当前是否存在于内存中。如果你调用了 [dispose]，
+  /// 此方法将返回`false`。
+  /// 此方法仅为保持旧版本兼容性而保留，在未来的版本中可能会被移除。
+  @Deprecated(
+      'The engine is now managed automatically. Its behavior has changed. This method will be removed in a future version.')
   static Future<bool> isFlutterEnginePreloaded() {
     return FloatingWindowAndroidPlatform.instance.isFlutterEnginePreloaded();
   }
 
-  /// Clean up preloaded Flutter engine to free memory
-  /// Call this when the app is being destroyed or no longer needs overlay functionality
+  /// **已废弃**: 请改用新的 [dispose] 方法。
+  ///
+  /// 此方法现在内部会直接调用 [dispose] 来执行清理操作。
+  /// 它的存在仅为保持旧版本兼容性，在未来的版本中可能会被移除。
+  @Deprecated(
+      'Use dispose() instead. This method will be removed in a future version.')
   static Future<bool> cleanupPreloadedEngine() {
     return FloatingWindowAndroidPlatform.instance.cleanupPreloadedEngine();
   }

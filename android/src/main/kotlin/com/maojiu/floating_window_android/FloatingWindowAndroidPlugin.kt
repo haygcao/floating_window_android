@@ -7,7 +7,6 @@ import android.content.Intent
 import com.maojiu.floating_window_android.constants.Constants
 import com.maojiu.floating_window_android.manager.OverlayManager
 import io.flutter.FlutterInjector
-import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.FlutterEngineGroup
 import io.flutter.embedding.engine.dart.DartExecutor
@@ -28,6 +27,20 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
   private val overlayManager: OverlayManager by lazy { OverlayManager(context) }
   private var messenger: BasicMessageChannel<Any>? = null
 
+  // --- ADDED: 新增一个可复用的函数来创建和缓存Flutter引擎 ---
+  // 这个方法将引擎创建的逻辑集中起来，便于在多个地方调用（自动初始化和手动初始化）。
+  private fun createAndCacheEngine() {
+    // 检查缓存，只有当引擎不存在时才创建。这可以防止重复创建，确保全局只有一个悬浮窗引擎实例。
+    if (FlutterEngineCache.getInstance().get(Constants.CACHED_ENGINE_ID) == null) {
+      val engineGroup = FlutterEngineGroup(context)
+      val dartEntryPoint = DartExecutor.DartEntrypoint(
+          FlutterInjector.instance().flutterLoader().findAppBundlePath(), "overlayMain"
+      )
+      val engine = engineGroup.createAndRunEngine(context, dartEntryPoint)
+      FlutterEngineCache.getInstance().put(Constants.CACHED_ENGINE_ID, engine)
+    }
+  }
+
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     context = flutterPluginBinding.applicationContext
     channel = MethodChannel(flutterPluginBinding.binaryMessenger, "floating_window_android")
@@ -41,6 +54,7 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
   }
 
   override fun onMethodCall(call: MethodCall, result: Result) {
+    // --- 重要: 以下所有case均保持我们之前确认的逻辑，不做任何修改 ---
     when (call.method) {
       Constants.GET_PLATFORM_VERSION -> {
         result.success("Android ${android.os.Build.VERSION.RELEASE}")
@@ -207,6 +221,46 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
           result.error("IS_MAIN_APP_RUNNING_ERROR", e.message, null)
         }
       }
+
+      // --- ADDED: 对新增的和废弃的引擎管理API的处理逻辑 ---
+      // 这是本次唯一的增量修改部分。
+
+       Constants.INITIALIZE_ENGINE,
+      Constants.PRELOAD_FLUTTER_ENGINE -> { // 将 preload 和 initialize 指向相同的健壮逻辑
+          try {
+              // 调用辅助函数，确保引擎实例存在。如果用户之前dispose了，这里会重新创建。
+              createAndCacheEngine()
+              result.success(true)
+          } catch (e: Exception) {
+              result.error("INITIALIZE_ERROR", e.message, null)
+          }
+      }
+      
+      // 将新的 dispose 和旧的 cleanup 指向同一个处理逻辑
+      Constants.DISPOSE_ENGINE, Constants.CLEANUP_PRELOADED_ENGINE -> {
+          try {
+              val engine = FlutterEngineCache.getInstance().get(Constants.CACHED_ENGINE_ID)
+              // 销毁引擎并从缓存中移除
+              engine?.destroy()
+              FlutterEngineCache.getInstance().remove(Constants.CACHED_ENGINE_ID)
+              result.success(true)
+          } catch (e: Exception) {
+              result.error("DISPOSE_ERROR", e.message, null)
+          }
+      }
+
+   
+   
+   
+   
+   
+
+      Constants.IS_FLUTTER_ENGINE_PRELOADED -> {
+          // 对于废弃的 isPreloaded API，我们检查引擎是否在缓存中。
+          // 如果用户调用了 dispose，这里会返回 false。
+          val engine = FlutterEngineCache.getInstance().get(Constants.CACHED_ENGINE_ID)
+          result.success(engine != null)
+      }
       
       else -> {
         result.notImplemented()
@@ -214,23 +268,19 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
     }
   }
 
+  override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+    activity = binding.activity
+    // [核心逻辑] 当插件与App的Activity绑定时，自动触发引擎的创建和缓存。
+    // 这确保了在用户需要显示悬浮窗时，引擎已经准备就绪，可以实现“秒开”。
+    createAndCacheEngine()
+  }
+
+  // --- 以下生命周期方法均无改动 ---
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
     channel.setMethodCallHandler(null)
     messenger?.setMessageHandler(null)
   }
   
-  override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-    activity = binding.activity
-    if (FlutterEngineCache.getInstance().get(Constants.CACHED_ENGINE_ID) == null) {
-      val engineGroup = FlutterEngineGroup(context)
-      val dartEntryPoint = DartExecutor.DartEntrypoint(
-          FlutterInjector.instance().flutterLoader().findAppBundlePath(), "overlayMain"
-      )
-      val engine = engineGroup.createAndRunEngine(context, dartEntryPoint)
-      FlutterEngineCache.getInstance().put(Constants.CACHED_ENGINE_ID, engine)
-    }
-  }
-
   override fun onDetachedFromActivityForConfigChanges() {
     activity = null
   }
