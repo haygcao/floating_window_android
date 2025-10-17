@@ -69,4 +69,9 @@ object Constants {
     // Notification channel
     const val NOTIFICATION_CHANNEL_ID = "floating_window_channel"
     const val NOTIFICATION_CHANNEL_NAME = "Floating Window Notification"
+    
+    // Notification visibility constants (THESE SHOULD NOT HAVE BEEN REMOVED)
+    const val VISIBILITY_SECRET = "VISIBILITY_SECRET"
+    const val VISIBILITY_PUBLIC = "VISIBILITY_PUBLIC"
+    const val VISIBILITY_PRIVATE = "VISIBILITY_PRIVATE"
 }

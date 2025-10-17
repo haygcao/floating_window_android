@@ -82,6 +82,9 @@ class CallKitService {
         alignment: OverlayAlignment.center,
         flag: OverlayFlag.lockScreen,
         enableDrag: true,
+        positionGravity: PositionGravity.none,
+
+        notificationVisibility: NotificationVisibility.visibilityPublic,
       );
       print("[CallKitService] showOverlay command sent to native.");
     } catch (e) {
