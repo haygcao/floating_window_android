@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:floating_window_android/floating_window_android.dart';
 import 'package:floating_window_android_example/callkit_service.dart';
 import 'package:floating_window_android_example/simple_overlay.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // 1. 引入 Riverpod
 // 核心修复：这个是悬浮窗的入口点
 
@@ -20,23 +20,14 @@ void overlayMain() {
   );
 }
 
-
-
-
-
-
-
 // 核心修复：这个是主 App 的入口点
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-    // 这会在后台准备好一个悬浮窗引擎，以便后续可以“秒开”
+  // 这会在后台准备好一个悬浮窗引擎，以便后续可以“秒开”
   await FloatingWindowAndroid.preloadFlutterEngine();
   CallKitService.initializeListeners();
   runApp(
-    const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: HomePage(),
-    ),
+    const MaterialApp(debugShowCheckedModeBanner: false, home: HomePage()),
   );
 }
 
@@ -64,7 +55,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showFeedback(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -73,15 +66,18 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(title: const Text('Floating Window Test')),
       body: Center(
         child: Column(
-         
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('Status: $_statusMessage', textAlign: TextAlign.center),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
             ElevatedButton(
               onPressed: () async {
                 final granted = await CallKitService.requestAllPermissions();
-                _showFeedback(granted ? "Permissions check complete!" : "Permissions denied!");
+                _showFeedback(
+                  granted
+                      ? "Permissions check complete!"
+                      : "Permissions denied!",
+                );
               },
               child: const Text('1. Request Permissions'),
             ),

@@ -21,8 +21,10 @@ object Constants {
     const val IS_SHOWING = "isShowing"
     const val IS_MAIN_APP_RUNNING = "isMainAppRunning"
 
-    // Event channels
-    const val OVERLAY_EVENT_CHANNEL = "floating_window_android/overlay_listener"
+    // Message Channel for reliable communication
+    const val MESSENGER_CHANNEL = "floating_window_android/messenger"
+    const val CACHED_ENGINE_ID = "floating_window_engine_id"
+
 
     // Parameter constants
     const val HEIGHT = "height"
@@ -67,14 +69,4 @@ object Constants {
     // Notification channel
     const val NOTIFICATION_CHANNEL_ID = "floating_window_channel"
     const val NOTIFICATION_CHANNEL_NAME = "Floating Window Notification"
-
-    // Notification visibility constants
-    const val VISIBILITY_SECRET = "VISIBILITY_SECRET"
-    const val VISIBILITY_PUBLIC = "VISIBILITY_PUBLIC"
-    const val VISIBILITY_PRIVATE = "VISIBILITY_PRIVATE"
-
-    // Flutter engine preloading methods
-    const val PRELOAD_FLUTTER_ENGINE = "preloadFlutterEngine"
-    const val IS_FLUTTER_ENGINE_PRELOADED = "isFlutterEnginePreloaded"
-    const val CLEANUP_PRELOADED_ENGINE = "cleanupPreloadedEngine"
 }

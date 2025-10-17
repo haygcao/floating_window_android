@@ -3,6 +3,7 @@ package com.maojiu.floating_window_android.manager
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Point
 import android.net.Uri
@@ -12,16 +13,12 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.FrameLayout
 import com.maojiu.floating_window_android.constants.Constants
-import io.flutter.FlutterInjector
 import io.flutter.embedding.android.FlutterTextureView
 import io.flutter.embedding.android.FlutterView
-import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
-import io.flutter.embedding.engine.dart.DartExecutor
-import io.flutter.plugin.common.EventChannel.EventSink
 import io.flutter.plugin.common.MethodChannel
+
 
 class OverlayManager(
     private val context: Context
@@ -30,13 +27,9 @@ class OverlayManager(
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     }
 
-    private var overlayView: FrameLayout? = null
-    private var flutterEngine: FlutterEngine? = null
     private var flutterView: FlutterView? = null
     private var windowParams: WindowManager.LayoutParams? = null
 
-    private var enableDrag = false
-    private var positionGravity = Constants.NONE
     private var startX = 0f
     private var startY = 0f
     private var initialX = 0
@@ -45,84 +38,15 @@ class OverlayManager(
     private var currentY = 0
 
     companion object {
-        private const val PRELOADED_ENGINE_KEY = "preloaded_overlay_engine"
-        private var isEnginePreloaded = false
-
-        // --- Start of the new, robust, static communication bridge ---
-        @JvmStatic
-        private var staticEventSink: EventSink? = null
+        @Volatile
+        private var instance: OverlayManager? = null
         
-        // [核心修复] 将缓存从 Any? 改为一个可变的 Map，用于累积数据。
-        @JvmStatic
-        private var cachedData: MutableMap<String, Any?> = mutableMapOf()
-
-        @JvmStatic
-        fun setEventSink(sink: EventSink?) {
-            staticEventSink = sink
-            // 当 Sink 准备好时，如果缓存中有数据，则发送整个累积的 Map。
-            if (sink != null && cachedData.isNotEmpty()) {
-                // 发送的是一个 Map 的副本，以防万一
-                sink.success(HashMap(cachedData))
-                // 发送后清空缓存
-                cachedData.clear()
+        fun getInstance(context: Context): OverlayManager =
+            instance ?: synchronized(this) {
+                instance ?: OverlayManager(context.applicationContext).also { instance = it }
             }
-        }
-
-        @JvmStatic
-        fun shareDataToOverlay(data: Any?) {
-            // [核心修复] 不再是覆盖，而是合并。
-            if (data is Map<*, *>) {
-                // 确保传入的是 Map 类型的数据
-                @Suppress("UNCHECKED_CAST")
-                val newMap = data as? Map<String, Any?>
-                if (newMap != null) {
-                    if (staticEventSink == null) {
-                        // Sink 未准备好，将新数据合并到缓存 Map 中。
-                        cachedData.putAll(newMap)
-                    } else {
-                        // Sink 已准备好，直接发送新数据。
-                        // 注意：这里我们假设 UI 逻辑 (StateNotifier) 也是合并逻辑。
-                        // 如果 UI 逻辑已经是合并，那么这里可以直接发送部分更新。
-                        staticEventSink?.success(newMap)
-                    }
-                }
-            }
-        }
-        // --- End of the static communication bridge ---
-
-        // ... preloadFlutterEngine, cleanupPreloadedEngine, isFlutterEnginePreloaded 保持不变 ...
-        fun preloadFlutterEngine(context: Context, dartEntryPoint: String = "overlayMain") {
-            if (isEnginePreloaded) { return }
-            try {
-                val engine = FlutterEngine(context)
-                val dartEntrypoint = DartExecutor.DartEntrypoint(
-                    FlutterInjector.instance().flutterLoader().findAppBundlePath(),
-                    dartEntryPoint
-                )
-                engine.dartExecutor.executeDartEntrypoint(dartEntrypoint)
-                FlutterEngineCache.getInstance().put(PRELOADED_ENGINE_KEY, engine)
-                isEnginePreloaded = true
-            } catch (e: Exception) {
-                android.util.Log.e("OverlayManager", "Failed to preload Flutter engine", e)
-            }
-        }
-
-        fun cleanupPreloadedEngine() {
-            try {
-                FlutterEngineCache.getInstance().get(PRELOADED_ENGINE_KEY)?.destroy()
-                FlutterEngineCache.getInstance().remove(PRELOADED_ENGINE_KEY)
-                isEnginePreloaded = false
-            } catch (e: Exception) {
-                android.util.Log.e("OverlayManager", "Failed to cleanup preloaded engine", e)
-            }
-        }
-
-        fun isFlutterEnginePreloaded(): Boolean {
-            return isEnginePreloaded && FlutterEngineCache.getInstance().get(PRELOADED_ENGINE_KEY) != null
-        }
     }
 
-    // ... 其他所有 OverlayManager 的实例方法 (isPermissionGranted, showOverlay, etc.) 都保持不变 ...
     fun isPermissionGranted(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(context) else true
     }
@@ -141,53 +65,52 @@ class OverlayManager(
         flag: String = Constants.DEFAULT_FLAG,
         enableDrag: Boolean = false,
         positionGravity: String = Constants.NONE,
-        startPosition: Map<String, Any>? = null,
-        dartEntryPoint: String = "overlayMain"
+        startPosition: Map<String, Any>? = null
     ) {
-        if (overlayView != null) {
-            closeOverlay()
+        val flutterEngine = FlutterEngineCache.getInstance().get(Constants.CACHED_ENGINE_ID)
+        if (flutterEngine == null) {
+            return
         }
-        this.enableDrag = enableDrag
-        this.positionGravity = positionGravity
-        flutterEngine = if (isFlutterEnginePreloaded()) {
-            FlutterEngineCache.getInstance().get(PRELOADED_ENGINE_KEY)
-        } else {
-            FlutterEngine(context).also {
-                val dartEntrypoint = DartExecutor.DartEntrypoint(
-                    FlutterInjector.instance().flutterLoader().findAppBundlePath(),
-                    dartEntryPoint
-                )
-                it.dartExecutor.executeDartEntrypoint(dartEntrypoint)
+
+        if (flutterView != null && flutterView?.isAttachedToWindow == true) {
+            return
+        }
+        
+        flutterEngine.lifecycleChannel.appIsResumed()
+
+        val overlayControlChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, Constants.OVERLAY_CONTROL_CHANNEL)
+        overlayControlChannel.setMethodCallHandler { call, result ->
+            if (call.method == "close") {
+                val serviceIntent = Intent(context, com.maojiu.floating_window_android.OverlayService::class.java)
+                context.stopService(serviceIntent)
+                result.success(true)
+            } else {
+                result.notImplemented()
             }
         }
-        flutterEngine?.let { engine ->
-            FlutterEngineCache.getInstance().put("overlay_engine", engine)
-            val overlayControlChannel = MethodChannel(engine.dartExecutor.binaryMessenger, Constants.OVERLAY_CONTROL_CHANNEL)
-            overlayControlChannel.setMethodCallHandler { call, result ->
-                if (call.method == "close") {
-                    closeOverlay()
-                    result.success(true)
-                } else {
-                    result.notImplemented()
-                }
-            }
-            flutterView = FlutterView(context, FlutterTextureView(context)).apply { attachToFlutterEngine(engine) }
-            overlayView = FrameLayout(context).apply {
-                addView(flutterView, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-            }
-            val params = setupWindowParams(height, width, alignment, flag)
+        
+        flutterView = FlutterView(context, FlutterTextureView(context)).apply {
+            attachToFlutterEngine(flutterEngine)
+            fitsSystemWindows = true
+            isFocusable = true
+            isFocusableInTouchMode = true
+            setBackgroundColor(Color.TRANSPARENT)
+        }
+
+        windowParams = setupWindowParams(height, width, alignment, flag).also { params ->
             if (startPosition != null) {
                 currentX = (startPosition[Constants.X] as? Number)?.toInt() ?: 0
                 currentY = (startPosition[Constants.Y] as? Number)?.toInt() ?: 0
                 params.x = currentX
                 params.y = currentY
             }
+
             if (enableDrag) {
-                setupDragListener(flutterView)
+                setupDragListener(flutterView, positionGravity)
             }
+
             try {
-                windowManager.addView(overlayView, params)
-                windowParams = params
+                windowManager.addView(flutterView, params)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -219,9 +142,9 @@ class OverlayManager(
             }
         }
     }
-
+    
     @SuppressLint("ClickableViewAccessibility")
-    private fun setupDragListener(targetView: View?) {
+    private fun setupDragListener(targetView: View?, positionGravity: String) {
         var isDragging = false
         targetView?.setOnTouchListener { _, event ->
             when (event.action) {
@@ -246,7 +169,7 @@ class OverlayManager(
                             params.x = currentX
                             params.y = currentY
                             try {
-                                overlayView?.let { ov -> windowManager.updateViewLayout(ov, params) }
+                                flutterView?.let { ov -> windowManager.updateViewLayout(ov, params) }
                             } catch (e: Exception) { e.printStackTrace() }
                         }
                         return@setOnTouchListener true
@@ -257,7 +180,7 @@ class OverlayManager(
                     val wasDragging = isDragging
                     isDragging = false
                     if (wasDragging) {
-                        handlePositionGravity()
+                        handlePositionGravity(positionGravity)
                         return@setOnTouchListener true
                     }
                     false
@@ -267,56 +190,45 @@ class OverlayManager(
         }
     }
 
-    private fun handlePositionGravity() {
-        if (positionGravity == Constants.NONE) return
+    private fun handlePositionGravity(gravity: String) {
+        if (gravity == Constants.NONE) return
         val size = Point()
         windowManager.defaultDisplay.getSize(size)
         val screenWidth = size.x
-        when (positionGravity) {
+        when (gravity) {
             Constants.RIGHT -> currentX = screenWidth - (windowParams?.width ?: 0)
             Constants.LEFT -> currentX = 0
             Constants.AUTO -> currentX = if (currentX > screenWidth / 2) screenWidth - (windowParams?.width ?: 0) else 0
         }
         windowParams?.x = currentX
         try {
-            windowManager.updateViewLayout(overlayView, windowParams)
+            windowManager.updateViewLayout(flutterView, windowParams)
         } catch (e: Exception) { e.printStackTrace() }
     }
 
     fun closeOverlay() {
-        // 清理缓存，以防万一
-        cachedData.clear()
-        
-        flutterEngine?.dartExecutor?.binaryMessenger?.let {
-            MethodChannel(it, Constants.OVERLAY_CONTROL_CHANNEL).setMethodCallHandler(null)
-        }
         try {
-            if (overlayView != null) {
-                windowManager.removeView(overlayView)
-                overlayView = null
+            if (flutterView != null) {
+                windowManager.removeView(flutterView)
+                flutterView?.detachFromFlutterEngine()
+                flutterView = null
+                windowParams = null
+                instance = null
+                val flutterEngine = FlutterEngineCache.getInstance().get(Constants.CACHED_ENGINE_ID)
+                flutterEngine?.lifecycleChannel?.appIsPaused()
             }
         } catch (e: Exception) { e.printStackTrace() }
-        flutterView?.detachFromFlutterEngine()
-        flutterView = null
-        flutterEngine?.let { engine ->
-            if (engine != FlutterEngineCache.getInstance().get(PRELOADED_ENGINE_KEY)) {
-                engine.destroy()
-            }
-            FlutterEngineCache.getInstance().remove("overlay_engine")
-        }
-        flutterEngine = null
-        windowParams = null
     }
 
     fun updateFlag(flag: String): Boolean {
-        if (windowParams == null || overlayView == null) return false
+        if (windowParams == null || flutterView == null) return false
         windowParams?.flags = when (flag) {
             Constants.CLICK_THROUGH -> WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
             Constants.FOCUS_POINTER -> WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
             else -> WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
         }
         return try {
-            windowManager.updateViewLayout(overlayView, windowParams)
+            windowManager.updateViewLayout(flutterView, windowParams)
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -325,11 +237,11 @@ class OverlayManager(
     }
 
     fun resizeOverlay(width: Int, height: Int): Boolean {
-        if (windowParams == null || overlayView == null) return false
+        if (windowParams == null || flutterView == null) return false
         windowParams?.width = if (width == Constants.MATCH_PARENT) WindowManager.LayoutParams.MATCH_PARENT else if (width == Constants.WRAP_CONTENT) WindowManager.LayoutParams.WRAP_CONTENT else width
         windowParams?.height = if (height == Constants.MATCH_PARENT) WindowManager.LayoutParams.MATCH_PARENT else if (height == Constants.WRAP_CONTENT) WindowManager.LayoutParams.WRAP_CONTENT else height
         return try {
-            windowManager.updateViewLayout(overlayView, windowParams)
+            windowManager.updateViewLayout(flutterView, windowParams)
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -338,13 +250,13 @@ class OverlayManager(
     }
 
     fun moveOverlay(x: Int, y: Int): Boolean {
-        if (windowParams == null || overlayView == null) return false
+        if (windowParams == null || flutterView == null) return false
         windowParams?.x = x
         windowParams?.y = y
         currentX = x
         currentY = y
         return try {
-            windowManager.updateViewLayout(overlayView, windowParams)
+            windowManager.updateViewLayout(flutterView, windowParams)
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -357,6 +269,6 @@ class OverlayManager(
     }
 
     fun isShowing(): Boolean {
-        return overlayView != null && overlayView?.isAttachedToWindow == true
+        return flutterView != null && flutterView?.isAttachedToWindow == true
     }
 }

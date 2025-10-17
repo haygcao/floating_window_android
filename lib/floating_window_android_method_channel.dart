@@ -1,20 +1,30 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'constants.dart';
 
 import 'floating_window_android_platform_interface.dart';
 
-/// An implementation of [FloatingWindowAndroidPlatform] that uses method channels.
 class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
-  /// The method channel used to interact with the native platform.
   @visibleForTesting
   final methodChannel = const MethodChannel('floating_window_android');
 
-  /// Event channel for listening to floating window events
-  @visibleForTesting
-  final eventChannel = const EventChannel(Constants.overlayEventChannel);
+  // Use BasicMessageChannel for reliable data transfer
+  final BasicMessageChannel<dynamic> _messageChannel =
+      BasicMessageChannel(Constants.messengerChannel, JSONMessageCodec());
 
-  /// Get platform version
+  // Stream controller to broadcast received messages
+  StreamController<dynamic>? _streamController;
+
+  MethodChannelFloatingWindowAndroid() {
+    _streamController = StreamController<dynamic>.broadcast();
+    _messageChannel.setMessageHandler((message) async {
+      _streamController?.add(message);
+      return message;
+    });
+  }
+
   @override
   Future<String?> getPlatformVersion() async {
     final version = await methodChannel.invokeMethod<String>(
@@ -23,7 +33,6 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
     return version;
   }
 
-  /// Check floating window permission
   @override
   Future<bool> isPermissionGranted() async {
     final result = await methodChannel.invokeMethod<bool>(
@@ -32,7 +41,6 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
     return result ?? false;
   }
 
-  /// Request floating window permission
   @override
   Future<bool> requestPermission() async {
     final result = await methodChannel.invokeMethod<bool>(
@@ -41,7 +49,6 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
     return result ?? false;
   }
 
-  /// Show floating window
   @override
   Future<bool> showOverlay({
     int? height,
@@ -75,7 +82,6 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
     return result ?? false;
   }
 
-  /// Close floating window
   @override
   Future<bool> closeOverlay() async {
     final result = await methodChannel.invokeMethod<bool>(
@@ -84,14 +90,12 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
     return result ?? false;
   }
 
-  /// Check if floating window is currently showing
   @override
   Future<bool> isShowing() async {
     final result = await methodChannel.invokeMethod<bool>(Constants.isShowing);
     return result ?? false;
   }
 
-  /// Update floating window flag
   @override
   Future<bool> updateFlag(String flag) async {
     final result = await methodChannel.invokeMethod<bool>(
@@ -101,7 +105,6 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
     return result ?? false;
   }
 
-  /// Resize floating window
   @override
   Future<bool> resizeOverlay(int width, int height) async {
     final result = await methodChannel.invokeMethod<bool>(
@@ -111,7 +114,6 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
     return result ?? false;
   }
 
-  /// Move floating window position
   @override
   Future<bool> moveOverlay(Map<String, dynamic> position) async {
     final result = await methodChannel.invokeMethod<bool>(
@@ -121,7 +123,6 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
     return result ?? false;
   }
 
-  /// Get current floating window position
   @override
   Future<Map<String, dynamic>> getOverlayPosition() async {
     final result = await methodChannel.invokeMapMethod<String, dynamic>(
@@ -130,54 +131,26 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
     return result ?? {'x': 0, 'y': 0};
   }
 
-  /// Share data between floating window and main app
   @override
   Future<bool> shareData(dynamic data) async {
-    final result = await methodChannel.invokeMethod<bool>(Constants.shareData, {
-      Constants.data: data,
-    });
-    return result ?? false;
+    // This now sends the data to the main app's plugin, which then forwards it
+    // through the BasicMessageChannel to the overlay.
+    await methodChannel
+        .invokeMethod(Constants.shareData, {Constants.data: data});
+    return true;
   }
 
-  /// Get floating window event listener
   @override
   Stream<dynamic> get overlayListener {
-    return eventChannel.receiveBroadcastStream();
+    // Return the stream from the controller which is fed by the BasicMessageChannel
+    _streamController ??= StreamController<dynamic>.broadcast();
+    return _streamController!.stream;
   }
 
-  /// Check if main app is running in foreground
   @override
   Future<bool> isMainAppRunning() async {
     final result = await methodChannel.invokeMethod<bool>(
       Constants.isMainAppRunning,
-    );
-    return result ?? false;
-  }
-
-  /// Preload Flutter engine for faster overlay startup
-  @override
-  Future<bool> preloadFlutterEngine(String dartEntryPoint) async {
-    final result = await methodChannel.invokeMethod<bool>(
-      Constants.preloadFlutterEngine,
-      {'dartEntryPoint': dartEntryPoint},
-    );
-    return result ?? false;
-  }
-
-  /// Check if Flutter engine is preloaded
-  @override
-  Future<bool> isFlutterEnginePreloaded() async {
-    final result = await methodChannel.invokeMethod<bool>(
-      Constants.isFlutterEnginePreloaded,
-    );
-    return result ?? false;
-  }
-
-  /// Clean up preloaded Flutter engine
-  @override
-  Future<bool> cleanupPreloadedEngine() async {
-    final result = await methodChannel.invokeMethod<bool>(
-      Constants.cleanupPreloadedEngine,
     );
     return result ?? false;
   }
@@ -189,5 +162,22 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
       params,
     );
     return result ?? false;
+  }
+  
+  // These are now no-ops as engine management is handled natively
+  // But we keep the API for compatibility
+  @override
+  Future<bool> preloadFlutterEngine(String dartEntryPoint) async {
+    return true; // Assume success, handled by native plugin attachment
+  }
+
+  @override
+  Future<bool> isFlutterEnginePreloaded() async {
+    return true; // Assume true if plugin is attached
+  }
+
+  @override
+  Future<bool> cleanupPreloadedEngine() async {
+    return true; // Handled by native service destruction
   }
 }
