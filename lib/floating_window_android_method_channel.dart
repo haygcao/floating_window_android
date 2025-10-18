@@ -189,7 +189,8 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
     // for this call and directly returns success.
     final result = await methodChannel.invokeMethod<bool>(
         Constants.preloadFlutterEngine, {'dartEntryPoint': dartEntryPoint});
-    return result ?? true; // Defaults to true because the engine is automatically loaded
+    return result ??
+        true; // Defaults to true because the engine is automatically loaded
   }
 
   @override

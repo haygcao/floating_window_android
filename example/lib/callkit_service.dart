@@ -22,12 +22,15 @@ class CallKitService {
           // ============ Fatal Error Fix Point ============
           // Previously, I forgot to declare the body variable, now it is correctly declared.
           // Create a Map from event.body, with the variable name body.
-          final Map<String, dynamic> body = Map<String, dynamic>.from(event.body);
+          final Map<String, dynamic> body = Map<String, dynamic>.from(
+            event.body,
+          );
 
           // Extract additional data from extra
-          final Map<String, dynamic> extraData = body.containsKey('extra')
-              ? Map<String, dynamic>.from(body['extra'])
-              : {};
+          final Map<String, dynamic> extraData =
+              body.containsKey('extra')
+                  ? Map<String, dynamic>.from(body['extra'])
+                  : {};
 
           // Construct a properly formatted data package for the UI
           // All 'body' references are now valid because it has been declared above.
@@ -35,11 +38,20 @@ class CallKitService {
             'configType': 'callerIdUpdate',
             'id': body['id'],
             'nameCaller': body['nameCaller'],
-             'handle': body['number'] ?? 'No Number', // <-- Get number from body['number']
+            'handle':
+                body['number'] ??
+                'No Number', // <-- Get number from body['number']
             'avatar': body['avatar'],
-              'country': extraData.containsKey('country') ? extraData['country'] : 'No Country',
-              'area': extraData.containsKey('area') ? extraData['area'] : 'No Area',  
-              'carrier': extraData.containsKey('carrier') ? extraData['carrier'] : 'AT&T Mobility',
+            'country':
+                extraData.containsKey('country')
+                    ? extraData['country']
+                    : 'No Country',
+            'area':
+                extraData.containsKey('area') ? extraData['area'] : 'No Area',
+            'carrier':
+                extraData.containsKey('carrier')
+                    ? extraData['carrier']
+                    : 'AT&T Mobility',
           };
 
           // Simulate a second data package for SIM card information
@@ -61,7 +73,9 @@ class CallKitService {
         case Event.actionCallEnded:
         case Event.actionCallTimeout:
           await FloatingWindowAndroid.closeOverlay();
-          print("[CallKitService] Overlay close command sent due to call event: ${event.event}.");
+          print(
+            "[CallKitService] Overlay close command sent due to call event: ${event.event}.",
+          );
           break;
         default:
           break;
@@ -116,10 +130,7 @@ class CallKitService {
       'carrier': 'AT&T Mobility',
     };
 
-    final simUpdate = {
-      'configType': 'simUpdate',
-      'simSlot': 'SIM 1',
-    };
+    final simUpdate = {'configType': 'simUpdate', 'simSlot': 'SIM 1'};
 
     await showOverlayWindow();
     await shareDataToOverlay(callerIdUpdate);
@@ -129,10 +140,8 @@ class CallKitService {
 
   static Future<bool> requestAllPermissions() async {
     print("[CallKitService] Requesting permissions...");
-    Map<Permission, PermissionStatus> statuses = await [
-      Permission.phone,
-      Permission.notification,
-    ].request();
+    Map<Permission, PermissionStatus> statuses =
+        await [Permission.phone, Permission.notification].request();
 
     bool overlayPermission = await FloatingWindowAndroid.isPermissionGranted();
     if (!overlayPermission) {
@@ -143,18 +152,24 @@ class CallKitService {
 
     bool allGranted = overlayPermission;
     statuses.forEach((permission, status) {
-      print('[Permission Check] ${permission.toString()}: ${status.toString()}');
+      print(
+        '[Permission Check] ${permission.toString()}: ${status.toString()}',
+      );
       if (!status.isGranted) {
         allGranted = false;
       }
     });
 
     if (!allGranted) {
-      print("[CallKitService] Some permissions were not granted. Opening app settings...");
+      print(
+        "[CallKitService] Some permissions were not granted. Opening app settings...",
+      );
       await openAppSettings();
     }
 
-    print("[CallKitService] Permissions check finished. All granted status: $allGranted");
+    print(
+      "[CallKitService] Permissions check finished. All granted status: $allGranted",
+    );
     return allGranted;
   }
 

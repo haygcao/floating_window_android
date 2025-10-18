@@ -35,7 +35,7 @@ class Constants {
   static const String y = "y";
   static const String data = "data";
 
-   // --- ADDED: Synchronized with native code, new and retained engine management constants ---
+  // --- ADDED: Synchronized with native code, new and retained engine management constants ---
 
   /// New: Channel method name for manual engine initialization.
   static const String initializeEngine = "initializeEngine";
@@ -48,7 +48,7 @@ class Constants {
 
   /// Retained: Method name for compatibility with old API.
   static const String isFlutterEnginePreloaded = "isFlutterEnginePreloaded";
-  
+
   /// Retained: Method name for compatibility with old API.
   static const String cleanupPreloadedEngine = "cleanupPreloadedEngine";
 }
