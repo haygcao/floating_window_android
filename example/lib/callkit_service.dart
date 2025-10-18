@@ -1,163 +1,188 @@
+// File: call_kit_service.dart
+// Final version: Fixed the fatal error "Undefined name 'body'"
+
 import 'dart:async';
 import 'package:flutter_callkit_incoming/entities/android_params.dart';
 import 'package:flutter_callkit_incoming/entities/call_event.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:floating_window_android/floating_window_android.dart';
-import 'package:phone_state/phone_state.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-/// A comprehensive service class integrating permission requests, simulated incoming calls, and real phone monitoring.
 class CallKitService {
-  // StreamSubscription for managing real phone state listening
-  static StreamSubscription<PhoneState>? _phoneStateSubscription;
-
-  /// Core entry point: Initializes all services and automatically requests all necessary permissions before starting.
-  static Future<void> initCallKit() async {
-    print("--- CallKitService Initialization Started ---");
-    
-    // Step 1: Automatically request all necessary permissions
-    await requestAllPermissions(); 
-
-    // Step 2: Listen for flutter_callkit_incoming plugin events (for simulated incoming calls)
+  static void initializeListeners() {
+    print("[CallKitService] Initializing CallKit event listener...");
     FlutterCallkitIncoming.onEvent.listen((event) async {
       if (event == null) return;
-      print("Received CallKit (Simulated Incoming Call) Event: ${event.event}");
-      
+      print("[CallKitService] >>> Received CallKit Event: ${event.event}");
+      print("[CallKitService] >>> Event Body: ${event.body}");
+
       switch (event.event) {
         case Event.actionCallIncoming:
-          print("Event Details: Received simulated incoming call, preparing to display Overlay...");
-          // The structure of CallKit's event.body is complex, we pass the entire body directly
-          await showOverlay(event.body); 
+          // ============ Fatal Error Fix Point ============
+          // Previously, I forgot to declare the body variable, now it is correctly declared.
+          // Create a Map from event.body, with the variable name body.
+          final Map<String, dynamic> body = Map<String, dynamic>.from(event.body);
+
+          // Extract additional data from extra
+          final Map<String, dynamic> extraData = body.containsKey('extra')
+              ? Map<String, dynamic>.from(body['extra'])
+              : {};
+
+          // Construct a properly formatted data package for the UI
+          // All 'body' references are now valid because it has been declared above.
+          final Map<String, dynamic> callerDataForUI = {
+            'configType': 'callerIdUpdate',
+            'id': body['id'],
+            'nameCaller': body['nameCaller'],
+             'handle': body['number'] ?? 'No Number', // <-- Get number from body['number']
+            'avatar': body['avatar'],
+              'country': extraData.containsKey('country') ? extraData['country'] : 'No Country',
+              'area': extraData.containsKey('area') ? extraData['area'] : 'No Area',  
+              'carrier': extraData.containsKey('carrier') ? extraData['carrier'] : 'AT&T Mobility',
+          };
+
+          // Simulate a second data package for SIM card information
+          final simData = {
+            'configType': 'simUpdate',
+            'simSlot': 'SIM 2 (from Event)',
+          };
+
+          // Call sequentially
+          await showOverlayWindow();
+          await shareDataToOverlay(callerDataForUI);
+
+          // Simulate a delay before sending the second data package
+          await Future.delayed(const Duration(milliseconds: 500));
+          await shareDataToOverlay(simData);
           break;
         case Event.actionCallAccept:
         case Event.actionCallDecline:
         case Event.actionCallEnded:
         case Event.actionCallTimeout:
-          print("Event Details: Simulated incoming call ended/declined/timed out, preparing to close Overlay...");
-          try {
-            await FloatingWindowAndroid.closeOverlay();
-          } catch (e) {
-            print("Error closing simulated incoming call Overlay (may already be closed): $e");
-          }
+          await FloatingWindowAndroid.closeOverlay();
+          print("[CallKitService] Overlay close command sent due to call event: ${event.event}.");
           break;
         default:
-          print("Event Details: Unhandled CallKit event: ${event.event}");
           break;
       }
     });
-    print("Status: Listening for 'Simulated Incoming Calls' started.");
-
-    // Step 3: Listen for real system phone status
-    _phoneStateSubscription?.cancel(); // Cancel any existing listeners to prevent duplication
-    _phoneStateSubscription = PhoneState.stream.listen((phoneState) async {
-      if (phoneState == null) return;
-      print("Real phone state changed: ${phoneState.status}, Number: ${phoneState.number}");
-
-      if (phoneState.status == PhoneStateStatus.CALL_INCOMING) {
-        await handleRealPhoneCall(phoneState.number ?? 'Unknown Number', 'System Incoming Call');
-      } else if (phoneState.status == PhoneStateStatus.CALL_ENDED || phoneState.status == PhoneStateStatus.NOTHING) {
-        print("Real phone call ended, preparing to close Overlay...");
-        try {
-          await FloatingWindowAndroid.closeOverlay();
-        } catch (e) {
-          print("Error closing real incoming call Overlay (may already be closed): $e");
-        }
-      }
-    });
-    print("Status: Listening for 'Real System Incoming Calls' started.");
-
-    print("--- CallKitService Initialization Completed ---");
   }
 
-  /// Public method to automatically request all permissions using permission_handler
+  static Future<void> showOverlayWindow() async {
+    print("[CallKitService] Showing an empty overlay window...");
+    try {
+      if (await FloatingWindowAndroid.isShowing()) {
+        await FloatingWindowAndroid.closeOverlay();
+      }
+
+      await FloatingWindowAndroid.showOverlay(
+        height: 1100,
+        width: 980,
+        alignment: OverlayAlignment.center,
+        flag: OverlayFlag.lockScreen,
+        enableDrag: true,
+        positionGravity: PositionGravity.none,
+
+        notificationVisibility: NotificationVisibility.visibilityPublic,
+      );
+      print("[CallKitService] showOverlay command sent to native.");
+    } catch (e) {
+      print("[CallKitService] FATAL ERROR during showOverlayWindow: $e");
+    }
+  }
+
+  static Future<void> shareDataToOverlay(Map<String, dynamic> data) async {
+    print("[CallKitService] Sharing data to overlay: $data");
+    try {
+      await FloatingWindowAndroid.shareData(data);
+      print("[CallKitService] shareData command sent to native.");
+    } catch (e) {
+      print("[CallKitService] FATAL ERROR during shareDataToOverlay: $e");
+    }
+  }
+
+  static Future<void> testWithComplexMockData() async {
+    print("[CallKitService] Testing multi-part data sharing...");
+
+    final callerIdUpdate = {
+      'configType': 'callerIdUpdate',
+      'id': 'mock_id_${DateTime.now().millisecondsSinceEpoch}',
+      'nameCaller': 'Jennifer Aniston',
+      'handle': '123-456-7890',
+      'avatar': 'https://i.pravatar.cc/150?u=jennifer',
+      'country': 'USA',
+      'area': 'Los Angeles',
+      'carrier': 'AT&T Mobility',
+    };
+
+    final simUpdate = {
+      'configType': 'simUpdate',
+      'simSlot': 'SIM 1',
+    };
+
+    await showOverlayWindow();
+    await shareDataToOverlay(callerIdUpdate);
+    await Future.delayed(const Duration(milliseconds: 500));
+    await shareDataToOverlay(simUpdate);
+  }
+
   static Future<bool> requestAllPermissions() async {
-    print("Permission Check: Starting to request all permissions...");
+    print("[CallKitService] Requesting permissions...");
     Map<Permission, PermissionStatus> statuses = await [
       Permission.phone,
       Permission.notification,
-      Permission.systemAlertWindow,
-      Permission.scheduleExactAlarm,
     ].request();
 
-    bool allGranted = true;
+    bool overlayPermission = await FloatingWindowAndroid.isPermissionGranted();
+    if (!overlayPermission) {
+      print("[CallKitService] Overlay permission not granted, requesting...");
+      await FloatingWindowAndroid.requestPermission();
+      overlayPermission = true;
+    }
+
+    bool allGranted = overlayPermission;
     statuses.forEach((permission, status) {
-      print('Permission Status - ${permission.toString()}: ${status.toString()}');
+      print('[Permission Check] ${permission.toString()}: ${status.toString()}');
       if (!status.isGranted) {
         allGranted = false;
-        if (permission == Permission.systemAlertWindow || permission == Permission.scheduleExactAlarm) {
-            print("Guidance: ${permission.toString()} permission requires manual enabling in system settings.");
-            openAppSettings(); // Automatically guide the user to the settings page
-        }
       }
     });
+
+    if (!allGranted) {
+      print("[CallKitService] Some permissions were not granted. Opening app settings...");
+      await openAppSettings();
+    }
+
+    print("[CallKitService] Permissions check finished. All granted status: $allGranted");
     return allGranted;
   }
-  
-  /// Core method to display the overlay
-  static Future<void> showOverlay(Map<String, dynamic> data) async {
-    print("Overlay Operation: Preparing to display overlay, data: $data");
-    try {
-      await FloatingWindowAndroid.closeOverlay();
-      print("Overlay Operation: Old overlay closed (if existed).");
 
-      await FloatingWindowAndroid.showOverlay(
-        height: 1000,
-        width: 950,
-       alignment: OverlayAlignment.center,
-       flag: OverlayFlag.lockScreen,
-       
-        enableDrag: true,
-      );
-      
-      await FloatingWindowAndroid.shareData(data);
-      print("Overlay Operation: Overlay displayed and data passed successfully!");
-    } catch (e) {
-      print("Overlay Operation: Serious error occurred while displaying/operating overlay: $e");
-    }
-  }
+  static Future<void> showIncomingCallNotification() async {
+    print("[CallKitService] Simulating an incoming call notification...");
 
-  /// Simulates an incoming call for testing
-  static Future<void> showIncomingCall() async {
-    print("Simulated Incoming Call: Starting...");
-    try {
-      final String callId = DateTime.now().millisecondsSinceEpoch.toString();
-      final params = CallKitParams(
-        id: callId,
-        nameCaller: 'Simulated Caller',
-        appName: 'Overlay Test',
-        avatar: 'https://i.pravatar.cc/100',
-        handle: '10086',
-        type: 0,
-        android: const AndroidParams(
-          isCustomNotification: true,
-          isShowLogo: false,
-          ringtonePath: 'system_ringtone_default',
-        ),
-      );
-      
-      await FlutterCallkitIncoming.showCallkitIncoming(params);
-      print("Simulated Incoming Call: Notification sent, waiting for onEvent to trigger...");
-    } catch (e) {
-      print("Simulated Incoming Call: Error during process: $e");
-    }
-  }
-  
-  /// Entry method to handle real system incoming calls
-  static Future<void> handleRealPhoneCall(String phoneNumber, String callerName) async {
-    print("Real Incoming Call Handling: $callerName ($phoneNumber)");
-    await showOverlay({
-      'id': 'system_call_${DateTime.now().millisecondsSinceEpoch}',
-      'nameCaller': callerName, // Keep key name consistent with CallKit
-      'handle': phoneNumber,
-      'isSystemCall': true,
-    });
-  }
+    final Map<String, dynamic> extraDataForCall = {
+      'country': 'USA (from Event)',
+      'area': 'LA',
+      'carrier': 'Mobile',
+    };
 
-  /// Stops all listening services and releases resources
-  static void dispose() {
-    _phoneStateSubscription?.cancel();
-    _phoneStateSubscription = null;
-    print("All phone state listeners stopped and resources released.");
+    final params = CallKitParams(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      nameCaller: 'Simulated Caller',
+      appName: 'FloatingWindowExample',
+      avatar: 'https://i.pravatar.cc/100',
+      handle: '123-456-7890',
+      type: 0,
+      extra: extraDataForCall,
+      android: const AndroidParams(
+        isCustomNotification: true,
+        isShowLogo: false,
+        ringtonePath: 'system_ringtone_default',
+        backgroundColor: '#091C40',
+        actionColor: '#4CAF50',
+      ),
+    );
+    await FlutterCallkitIncoming.showCallkitIncoming(params);
   }
 }

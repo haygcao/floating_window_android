@@ -10,23 +10,15 @@ class Constants {
   static const String moveOverlay = "moveOverlay";
   static const String getOverlayPosition = "getOverlayPosition";
   static const String shareData = "shareData";
-  static const String openMainApp = "openMainApp"; // Added method name
-  static const String closeOverlayFromOverlay =
-      "close"; // Added: Close from within the floating window
+  static const String openMainApp = "openMainApp";
+  static const String closeOverlayFromOverlay = "close";
   static const String overlayControlChannel =
-      "floating_window_android/overlay_control"; // Added
-  static const String isMainAppRunning =
-      "isMainAppRunning"; // Check if the main app is running in foreground
-  static const String navigateToPage =
-      "navigateToPage"; // Navigate to specified page
+      "floating_window_android/overlay_control";
+  static const String isMainAppRunning = "isMainAppRunning";
   static const String isShowing = "isShowing";
 
-  // Event channels
-  static const String overlayEventChannel =
-      "floating_window_android/overlay_listener";
-
-  static const String navigationEventChannel =
-      "com.maojiu.floating_window_android_example/navigation";
+  // Message Channel for reliable communication
+  static const String messengerChannel = "floating_window_android/messenger";
 
   // Parameter constants
   static const String height = "height";
@@ -43,8 +35,20 @@ class Constants {
   static const String y = "y";
   static const String data = "data";
 
-  // Flutter engine preloading methods for faster overlay startup
+   // --- ADDED: Synchronized with native code, new and retained engine management constants ---
+
+  /// New: Channel method name for manual engine initialization.
+  static const String initializeEngine = "initializeEngine";
+
+  /// New: Channel method name for manual engine disposal.
+  static const String disposeEngine = "disposeEngine";
+
+  /// Retained: Method name for compatibility with old API.
   static const String preloadFlutterEngine = "preloadFlutterEngine";
+
+  /// Retained: Method name for compatibility with old API.
   static const String isFlutterEnginePreloaded = "isFlutterEnginePreloaded";
+  
+  /// Retained: Method name for compatibility with old API.
   static const String cleanupPreloadedEngine = "cleanupPreloadedEngine";
 }

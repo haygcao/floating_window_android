@@ -1,5 +1,4 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
-
 import 'floating_window_android_method_channel.dart';
 
 abstract class FloatingWindowAndroidPlatform extends PlatformInterface {
@@ -24,6 +23,7 @@ abstract class FloatingWindowAndroidPlatform extends PlatformInterface {
     _instance = instance;
   }
 
+  // --- All existing method definitions below remain unchanged ---
   Future<String?> getPlatformVersion() {
     throw UnimplementedError('platformVersion() has not been implemented.');
   }
@@ -104,24 +104,33 @@ abstract class FloatingWindowAndroidPlatform extends PlatformInterface {
     throw UnimplementedError('openMainApp() has not been implemented.');
   }
 
-  /// Preload Flutter engine for faster overlay startup
+  // --- ADDED: Abstract definitions for new and retained engine management methods ---
+
+  /// Abstract method to ensure the engine is initialized.
+  Future<bool> initialize() {
+    throw UnimplementedError('initialize() has not been implemented.');
+  }
+
+  /// Abstract method to dispose of the engine.
+  Future<bool> dispose() {
+    throw UnimplementedError('dispose() has not been implemented.');
+  }
+
+  /// Abstract method for compatibility with old API.
   Future<bool> preloadFlutterEngine(String dartEntryPoint) {
     throw UnimplementedError(
-      'preloadFlutterEngine() has not been implemented.',
-    );
+        'preloadFlutterEngine() has not been implemented.');
   }
 
-  /// Check if Flutter engine is preloaded
+  /// Abstract method for compatibility with old API.
   Future<bool> isFlutterEnginePreloaded() {
     throw UnimplementedError(
-      'isFlutterEnginePreloaded() has not been implemented.',
-    );
+        'isFlutterEnginePreloaded() has not been implemented.');
   }
 
-  /// Clean up preloaded Flutter engine
+  /// Abstract method for compatibility with old API.
   Future<bool> cleanupPreloadedEngine() {
     throw UnimplementedError(
-      'cleanupPreloadedEngine() has not been implemented.',
-    );
+        'cleanupPreloadedEngine() has not been implemented.');
   }
 }
