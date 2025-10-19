@@ -133,4 +133,10 @@ abstract class FloatingWindowAndroidPlatform extends PlatformInterface {
     throw UnimplementedError(
         'cleanupPreloadedEngine() has not been implemented.');
   }
+
+  /// Abstract method to get the device pixel ratio.
+  Future<double> getDevicePixelRatio() {
+    throw UnimplementedError('getDevicePixelRatio() has not been implemented.');
+  }
+  
 }

@@ -51,4 +51,7 @@ class Constants {
   
   /// Retained: Method name for compatibility with old API.
   static const String cleanupPreloadedEngine = "cleanupPreloadedEngine";
+
+  /// --- ADDED: 与原生同步，为 getDevicePixelRatio 添加常量 ---
+   static const String getDevicePixelRatio = "getDevicePixelRatio";
 }

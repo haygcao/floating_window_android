@@ -75,10 +75,25 @@ class CallKitService {
       if (await FloatingWindowAndroid.isShowing()) {
         await FloatingWindowAndroid.closeOverlay();
       }
+    // 1. 定义你期望的逻辑像素尺寸
+      // 将你之前的硬编码值视为逻300素
+      const double logicalWidth = 200;
+      const double logicalHeight = 900;
+
+      // 2. 从插件可靠地获取设备的像素比
+      // 这个调用无论在前台还是后台都有效
+      final double pixelRatio = await FloatingWindowAndroid.getDevicePixelRatio();
+      print("[CallKitService] Device pixel ratio fetched: $pixelRatio");
+
+      // 3. 计算出原生层需要的物理像素尺寸
+      final int physicalWidth = (logicalWidth * pixelRatio).toInt();
+      final int physicalHeight = (logicalHeight * pixelRatio).toInt();
+      print("[CallKitService] Calculated physical size: ${physicalWidth}x$physicalHeight");
 
       await FloatingWindowAndroid.showOverlay(
-        height: 1100,
-        width: 980,
+        height: physicalHeight, // <-- 使用物理高度
+        width: physicalWidth,   // <-- 使用物理宽度
+       
         alignment: OverlayAlignment.center,
         flag: OverlayFlag.lockScreen,
         enableDrag: true,

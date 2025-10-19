@@ -261,7 +261,18 @@ class FloatingWindowAndroidPlugin: FlutterPlugin, MethodCallHandler, ActivityAwa
           val engine = FlutterEngineCache.getInstance().get(Constants.CACHED_ENGINE_ID)
           result.success(engine != null)
       }
-      
+
+     // --- ADDED: Logic for getting device pixel ratio ---
+      Constants.GET_DEVICE_PIXEL_RATIO -> { 
+          try {
+              val density = context.resources.displayMetrics.density
+              result.success(density.toDouble())
+          } catch (e: Exception) {
+              result.error("GET_DENSITY_ERROR", e.message, null)
+          }
+      }
+      // --- ADDED: Logic for getting device pixel ratio ---
+
       else -> {
         result.notImplemented()
       }
