@@ -165,6 +165,6 @@ class _SimpleOverlayState extends State<SimpleOverlay> {
   }
 
   void _onDecline() {
-    FloatingWindowAndroid.closeOverlay();
+    FloatingWindowAndroid.closeOverlayFromOverlay();
   }
 }

@@ -76,39 +76,39 @@ object Constants {
 
     // --- ADDED: New engine management constants ---
     // These constants are used for the new manual engine control API.
-    // --- ADDED: 为新的引擎手动管理功能和兼容旧API而添加的常量 ---
     /**
-     * 新增: 用于从Dart端手动触发引擎初始化。
-     * 场景：用户从“仅通知”模式切换回“悬浮窗”模式时，需要重新创建之前被dispose的引擎。
+     * New: Used to manually trigger engine initialization from the Dart side.
+     * Scenario: When the user switches from "notification only" mode back to "floating window" mode, the previously disposed engine needs to be recreated.
      */
     const val INITIALIZE_ENGINE = "initializeEngine"
 
     /**
-     * 新增: 用于从Dart端手动触发引擎销毁。
-     * 场景：用户选择“仅通知”模式，不再需要悬浮窗时，调用此方法释放引擎占用的内存。
+     * New: Used to manually trigger engine destruction from the Dart side.
+     * Scenario: When the user selects "notification only" mode and no longer needs the floating window, this method is called to release the memory occupied by the engine.
      */
     const val DISPOSE_ENGINE = "disposeEngine"
 
     /**
-     * 保留: 兼容旧的 `preloadFlutterEngine` API调用。
-     * 在新架构中，此调用无实际预加载作用，因为引擎是自动创建的。
+     * Reserved: Compatible with the old `preloadFlutterEngine` API call.
+     * In the new architecture, this call has no actual preloading effect because the engine is created automatically.
      */
     const val PRELOAD_FLUTTER_ENGINE = "preloadFlutterEngine"
     
     /**
-     * 保留: 兼容旧的 `isFlutterEnginePreloaded` API调用。
-     * 在新架构中，此调用用于检查自动缓存的引擎当前是否存在。
+     * Reserved: Compatible with the old `isFlutterEnginePreloaded` API call.
+     * In the new architecture, this call is used to check if the automatically cached engine currently exists.
      */
     const val IS_FLUTTER_ENGINE_PRELOADED = "isFlutterEnginePreloaded"
 
     /**
-     * 保留: 兼容旧的 `cleanupPreloadedEngine` API调用。
-     * 在新架构中，此调用将被路由到新的销毁逻辑，等同于 `disposeEngine`。
+     * Reserved: Compatible with the old `cleanupPreloadedEngine` API call.
+     * In the new architecture, this call will be routed to the new destruction logic, equivalent to `disposeEngine`.
      */
-    const val CLEANUP_PRELOADED_ENGINE = "cleanupPreloadedEngine"
+    const val CLEANUP_PRELOADED_ENGINE = "cleanupPreloaded_ENGINE"
 
 
-
+    // --- ADDED: A standard constant for getDevicePixelRatio ---
+    const val GET_DEVICE_PIXEL_RATIO = "getDevicePixelRatio"
 
 
 }

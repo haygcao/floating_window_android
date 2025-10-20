@@ -286,4 +286,11 @@ class FloatingWindowAndroid {
   static Future<bool> cleanupPreloadedEngine() {
     return FloatingWindowAndroidPlatform.instance.cleanupPreloadedEngine();
   }
+
+ // --- ADDED: New API for getting device pixel ratio ---
+  static Future<double> getDevicePixelRatio() {
+    return FloatingWindowAndroidPlatform.instance.getDevicePixelRatio();
+  }
+
+
 }

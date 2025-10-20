@@ -208,4 +208,12 @@ class MethodChannelFloatingWindowAndroid extends FloatingWindowAndroidPlatform {
         .invokeMethod<bool>(Constants.cleanupPreloadedEngine);
     return result ?? false;
   }
+
+  @override
+  Future<double> getDevicePixelRatio() async {
+    // Call native method to get the device pixel ratio.
+    final result = await methodChannel.invokeMethod<double>(Constants.getDevicePixelRatio);
+    return result ?? 1.0;
+  }
+
 }
